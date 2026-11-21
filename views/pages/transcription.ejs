@@ -118,6 +118,22 @@
                 </button>
               </div>
             </div>
+
+            <!-- Graceful Fallback: Quick File Upload (.TXT, .SRT, .VTT) when rate-limited or blocked -->
+            <div id="ytUploadFallbackCard" class="hidden" style="margin-top: 14px; padding: 14px 18px; background: rgba(59, 130, 246, 0.05); border: 1px dashed var(--accent-primary); border-radius: var(--radius-md);">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <strong style="font-size: 0.9rem; color: var(--accent-primary);">📁 Upload Transcript File (.TXT, .SRT, .VTT)</strong>
+                  <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0 0;">Upload a local transcript or subtitle file to generate your complete study pack immediately without waiting for YouTube cooldown.</p>
+                </div>
+                <div>
+                  <label for="ytFallbackFileInput" class="btn btn-secondary btn-sm" style="cursor: pointer; margin-bottom: 0;">
+                    <span>📂 Select Subtitle/Text File</span>
+                  </label>
+                  <input type="file" id="ytFallbackFileInput" accept=".txt,.srt,.vtt,text/plain" style="display: none;" onchange="handleManualFileInput(event)">
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Audio Upload Tab -->
@@ -544,6 +560,26 @@
       });
       const data = await res.json();
       if (!data.success) {
+        if (data.errorCode === 'RATE_LIMITED' || data.isRateLimited) {
+          const fallbackBox = document.getElementById('ytUploadFallbackCard');
+          if (fallbackBox) fallbackBox.classList.remove('hidden');
+
+          let remaining = data.cooldownRemainingSec || 60;
+          showStatus(`⏳ <strong>YouTube Cooldown Active:</strong> Automated caption requests are temporarily resting for <strong id="cooldownTimer">${remaining}s</strong>. You can wait for the cooldown or <strong>upload a transcript file (.txt, .srt)</strong> below to continue immediately.`, 'warning');
+
+          if (window._cooldownInterval) clearInterval(window._cooldownInterval);
+          window._cooldownInterval = setInterval(() => {
+            remaining--;
+            const timerEl = document.getElementById('cooldownTimer');
+            if (timerEl) timerEl.textContent = `${remaining}s`;
+            if (remaining <= 0) {
+              clearInterval(window._cooldownInterval);
+              showStatus('✅ Cooldown expired. You may now retry fetching transcripts.', 'info');
+            }
+          }, 1000);
+          return;
+        }
+
         showStatus(`⚠️ ${data.error || 'Captions are unavailable for this video.'}${data.details ? ' ' + data.details : ''}`, 'warning');
         return;
       }

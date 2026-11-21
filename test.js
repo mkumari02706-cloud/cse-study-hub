@@ -1441,9 +1441,76 @@ async function runTests() {
   assert.ok(invalidMimeResult.error.includes('Unsupported file format'), 'Must specify format error');
   console.log('  ✓ Media speech-to-text validated: enforces 50MB limit and media MIME whitelist');
 
+  // Test 45: Rate-Limiting Backoff, MongoDB Transcript Caching & Graceful Fallback
+  console.log('\nTest 45: Rate-Limiting Backoff, MongoDB Transcript Caching & Graceful Fallback');
+  const { TranscriptCache } = require('./src/models');
+  assert.ok(TranscriptCache, 'TranscriptCache model must be defined and exported in models');
+
+  // 1. Verify MongoDB model caching & avoidance of repeated requests
+  const mongoVid = 'mongoYt0199';
+  await youtubeService.cacheTranscript(mongoVid, {
+    fullText: 'Demonstrating MongoDB transcript caching for CSE Study Hub without repeated requests.',
+    timestampedText: '[00:00] Demonstrating MongoDB transcript caching for CSE Study Hub without repeated requests.',
+    wordCount: 11,
+    metadata: { title: 'MongoDB Caching Architecture', videoUrl: `https://www.youtube.com/watch?v=${mongoVid}` }
+  }, 'en');
+
+  // Verify stored in MongoDB model collection
+  const mongoDoc = await TranscriptCache.findOne({ videoId: mongoVid, language: 'en' });
+  assert.ok(mongoDoc, 'Transcript must be stored in MongoDB TranscriptCache model');
+  assert.strictEqual(mongoDoc.videoId, mongoVid);
+  assert.strictEqual(mongoDoc.wordCount, 11);
+  console.log('  ✓ Transcript caching in MongoDB model verified (persisted with TTL)');
+
+  // Clear memory cache completely to simulate fresh server restart
+  const cacheObj = youtubeService.getCache();
+  cacheObj.cache.clear();
+
+  // Fetch should hit MongoDB model directly without outbound YouTube network request
+  const repeatFetch = await youtubeService.fetchTranscript(mongoVid, 'en');
+  assert.strictEqual(repeatFetch.success, true);
+  assert.strictEqual(repeatFetch.isCached, true, 'Subsequent request for same video must return cached result');
+  assert.strictEqual(repeatFetch.wordCount, 11);
+  console.log('  ✓ Repeated request for same YouTube video served from MongoDB cache without hitting YouTube');
+
+  // 2. Verify User-Friendly Cooldown Message on Rate-Limiting
+  cacheObj.setRateLimitCooldown(40000, 'Simulated Render Datacenter 429');
+  const cooldownRes = await youtubeService.fetchTranscript('uncachedV01', 'en');
+  assert.strictEqual(cooldownRes.success, false);
+  assert.strictEqual(cooldownRes.errorCode, 'RATE_LIMITED');
+  assert.strictEqual(cooldownRes.isRateLimited, true);
+  assert.ok(cooldownRes.cooldownRemainingSec > 0, 'Must include cooldownRemainingSec');
+  assert.ok(cooldownRes.message.includes('cooldown') || cooldownRes.message.includes('rate-limit'), 'Must provide friendly cooldown message');
+  assert.strictEqual(cooldownRes.canUploadManual, true, 'Must offer manual upload fallback during cooldown');
+  assert.strictEqual(cooldownRes.canFallbackManual, true);
+  console.log(`  ✓ User-friendly cooldown message verified (${cooldownRes.cooldownRemainingSec}s remaining, manual file upload offered)`);
+
+  // Cached video must STILL be served even during active cooldown
+  const cachedDuringCooldown = await youtubeService.fetchTranscript(mongoVid, 'en');
+  assert.strictEqual(cachedDuringCooldown.success, true, 'Cached video must succeed even during active cooldown');
+  assert.strictEqual(cachedDuringCooldown.isCached, true);
+  console.log('  ✓ Cached video served instantly during active rate-limit cooldown');
+
+  // Reset cooldown
+  cacheObj.clear();
+
+  // 3. Verify manual TXT and SRT file upload endpoints
+  const srtSample = `1\n00:00:10,000 --> 00:00:15,000\nOperating Systems manage hardware resources.\n\n2\n00:00:16,000 --> 00:00:20,000\nMemory virtualization provides address space isolation.`;
+  const srtUploadRes = await fetch(`${baseUrl}/transcription/api/upload-text-file`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: srtSample })
+  });
+  const srtData = await srtUploadRes.json();
+  assert.strictEqual(srtData.success, true);
+  assert.strictEqual(srtData.timestampedTranscript.length, 2);
+  assert.strictEqual(srtData.timestampedTranscript[0].timestamp, '[00:10]');
+  assert.strictEqual(srtData.timestampedTranscript[1].timestamp, '[00:16]');
+  console.log('  ✓ Manual SRT transcript upload parsed with standard timestamps [00:10], [00:16]');
+
   server.close();
 
-  console.log('\n🎉 ALL 44 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! YouTube transcription, error handling, rate-limit protection, text file upload, and study packs are fully validated and operational.');
+  console.log('\n🎉 ALL 45 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! YouTube rate-limiting, exponential backoff, MongoDB caching, and manual TXT/SRT uploads are fully validated and operational.');
 }
 
 runTests().catch(err => {

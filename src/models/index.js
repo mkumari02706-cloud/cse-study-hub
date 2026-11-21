@@ -5,6 +5,7 @@ const StudyTask = require('./StudyTask');
 const LectureTranscript = require('./LectureTranscript');
 const LectureNotes = require('./LectureNotes');
 const LearningProgress = require('./LearningProgress');
+const TranscriptCache = require('./TranscriptCache');
 
 module.exports = {
   UniversityNotice,
@@ -13,5 +14,6 @@ module.exports = {
   StudyTask,
   LectureTranscript,
   LectureNotes,
-  LearningProgress
+  LearningProgress,
+  TranscriptCache
 };

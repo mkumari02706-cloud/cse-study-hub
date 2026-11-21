@@ -29,13 +29,18 @@ class TranscriptionService {
         success: false,
         videoId: result.videoId,
         errorCode: result.errorCode || 'TRANSCRIPT_NOT_AVAILABLE',
+        isRateLimited: Boolean(result.isRateLimited),
+        cooldownRemainingSec: result.cooldownRemainingSec || 0,
         error: result.error || 'Captions are disabled or unavailable for this YouTube lecture.',
+        message: result.message || result.error,
         details: result.details || 'Please paste the transcript or upload a file manually.',
         metadata: result.metadata,
         canUploadManual: true,
         canFallbackManual: true,
         canUploadMedia: true,
-        suggestedAction: result.suggestedAction || 'manual_paste_or_upload'
+        suggestedAction: result.suggestedAction || 'upload_file_or_wait',
+        environment: result.environment,
+        productionGuidance: result.productionGuidance
       };
     }
 

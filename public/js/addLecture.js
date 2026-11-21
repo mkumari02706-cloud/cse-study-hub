@@ -135,9 +135,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
 
-          const errorMsg = data.error || 'Captions are unavailable for this video.';
-          const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
-          showStatus(`⚠️ ${errorMsg}${detailMsg}`, 'warning');
+          // Unhide manual transcript & file upload box so user can upload TXT/SRT file immediately
+          if (manualBox) manualBox.classList.remove('hidden');
+
+          if (data.errorCode === 'RATE_LIMITED' || data.isRateLimited) {
+            const remaining = data.cooldownRemainingSec || 60;
+            showStatus(`⏳ <strong>YouTube Cooldown Active (${remaining}s):</strong> Automated caption requests are temporarily resting. Please upload a transcript file (.txt, .srt, .vtt) below to continue immediately.`, 'warning');
+          } else {
+            const errorMsg = data.error || 'Captions are unavailable for this video.';
+            const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
+            showStatus(`⚠️ ${errorMsg}${detailMsg}`, 'warning');
+          }
         }
       } catch (err) {
         showStatus(`⚠️ Error: ${err.message}`, 'danger');
