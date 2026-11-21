@@ -124,7 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
           enableAIGenerator();
         } else {
           // Clear error handling with manual fallback
-          showStatus(`⚠️ ${data.error}`, 'warning');
+          const errorMsg = data.error || 'Captions are unavailable for this video.';
+          const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
+          showStatus(`⚠️ ${errorMsg}${detailMsg}`, 'warning');
           if (manualBox) manualBox.classList.remove('hidden');
           if (transcriptPreview) transcriptPreview.classList.add('hidden');
         }
@@ -133,6 +135,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (manualBox) manualBox.classList.remove('hidden');
       } finally {
         fetchTranscriptBtn.disabled = false;
+      }
+    });
+  }
+
+  // Manual Transcript File Upload Handler
+  const manualFileInput = document.getElementById('manualTranscriptFileInput');
+  if (manualFileInput) {
+    manualFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      showStatus(`⏳ Uploading and reading transcript file "${file.name}"...`, 'info', true);
+
+      const formData = new FormData();
+      formData.append('transcriptFile', file);
+
+      try {
+        const res = await fetch('/api/upload-transcript-file', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success && data.text) {
+          if (manualTranscriptArea) manualTranscriptArea.value = data.text;
+          currentTranscript = data.text;
+          const words = data.text.split(/\s+/).filter(Boolean).length;
+          showStatus(`✅ Transcript file loaded successfully (${words} words).`, 'success');
+          enableAIGenerator();
+        } else {
+          showStatus(`⚠️ Could not parse file: ${data.error || 'Unknown error'}`, 'warning');
+        }
+      } catch (err) {
+        // Fallback to FileReader
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const text = event.target.result;
+          if (manualTranscriptArea) manualTranscriptArea.value = text;
+          currentTranscript = text;
+          const words = text.split(/\s+/).filter(Boolean).length;
+          showStatus(`✅ Transcript file loaded locally (${words} words).`, 'success');
+          enableAIGenerator();
+        };
+        reader.onerror = () => showStatus('Could not read file locally.', 'danger');
+        reader.readAsText(file);
       }
     });
   }

@@ -107,8 +107,12 @@
         <div id="manualTranscriptBox" class="hidden" style="margin-top: 16px; padding: 18px; background: var(--bg-primary); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
           <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;">📝 Manual Transcript Input</h4>
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
-            If captions are disabled on the YouTube video, simply paste the lecture transcript text below or upload a text file.
+            If captions are disabled or rate-limited on the YouTube video, simply paste the lecture transcript text below or upload a text file.
           </p>
+          <div style="margin-bottom: 12px;">
+            <label class="form-label" for="manualTranscriptFileInput" style="font-size: 0.82rem; font-weight: 600;">Upload Transcript File (.txt, .srt, .vtt):</label>
+            <input type="file" id="manualTranscriptFileInput" accept=".txt,.srt,.vtt,text/plain" class="form-control" style="font-size: 0.85rem;">
+          </div>
           <textarea id="manualTranscriptArea" class="form-control" rows="6" placeholder="Paste lecture transcript or speaking notes here..."></textarea>
           <div style="margin-top: 10px; display: flex; gap: 10px;">
             <button type="button" id="useManualBtn" class="btn btn-secondary btn-sm">

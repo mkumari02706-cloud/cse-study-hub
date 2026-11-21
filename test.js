@@ -1208,9 +1208,122 @@ async function runTests() {
   assert.strictEqual(getSubjectById(customSub2.id), null, 'Custom subject must be deleted via POST fallback');
   console.log('  ✓ POST /syllabus/api/subject/:id/delete successfully deleted custom subject');
 
+  // Test 33: YouTube Video ID Extractor Extended Patterns
+  console.log('\nTest 33: YouTube Video ID Extractor Extended Patterns');
+  const extendedUrls = [
+    { url: 'https://www.youtube.com/live/dQw4w9WgXcQ', expected: 'dQw4w9WgXcQ' },
+    { url: 'https://m.youtube.com/watch?v=dQw4w9WgXcQ&feature=youtu.be', expected: 'dQw4w9WgXcQ' },
+    { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=120s&ab_channel=Artist', expected: 'dQw4w9WgXcQ' },
+    { url: 'https://www.youtube.com/v/dQw4w9WgXcQ', expected: 'dQw4w9WgXcQ' },
+    { url: '', expected: null },
+    { url: 'https://example.com/not-youtube', expected: null },
+    { url: null, expected: null }
+  ];
+  extendedUrls.forEach(({ url, expected }) => {
+    const extracted = youtubeService.extractVideoId(url);
+    assert.strictEqual(extracted, expected, `Failed on URL ${url}`);
+  });
+  console.log('  ✓ Extended YouTube URL patterns (live, mobile, query params, invalid URLs) verified');
+
+  // Test 34: YouTube Caption Extraction Caching, Negative Caching & Invalidation
+  console.log('\nTest 34: YouTube Caption Extraction Caching & Cooldown Layer');
+  const cache = youtubeService.getCache();
+  cache.clear();
+
+  // Test caching a transcript entry (using valid 11-character ID: mockVid1234)
+  cache.set('yt_transcript_mockVid1234_en', {
+    success: true,
+    videoId: 'mockVid1234',
+    language: 'en',
+    wordCount: 150,
+    timestampedText: '[00:00] Mock cached transcript text',
+    fullText: 'Mock cached transcript text',
+    metadata: { title: 'Mock Video' }
+  }, 10000);
+
+  const cachedResult = await youtubeService.fetchTranscript('mockVid1234', 'en');
+  assert.strictEqual(cachedResult.success, true);
+  assert.strictEqual(cachedResult.isCached, true, 'Cached result must have isCached: true');
+  assert.strictEqual(cachedResult.videoId, 'mockVid1234');
+  console.log('  ✓ In-memory transcript cache hit verified (served from cache without outbound request)');
+
+  // Test 35: Rate Limit Protection & Cooldown Simulation
+  console.log('\nTest 35: Rate Limit Protection & Cooldown Simulation');
+  cache.setRateLimitCooldown(60000, 'Simulated YouTube IP Captcha Challenge');
+  assert.strictEqual(cache.isCooldownActive(), true, 'Cooldown must be active');
+  assert.ok(cache.getCooldownRemainingSec() > 0, 'Remaining seconds must be > 0');
+
+  // Request during cooldown must reject gracefully without hammering YouTube
+  const rateLimitedResult = await youtubeService.fetchTranscript('testVid1234', 'en');
+  assert.strictEqual(rateLimitedResult.success, false, 'Must not falsely claim success');
+  assert.strictEqual(rateLimitedResult.errorCode, 'RATE_LIMITED', 'Must return RATE_LIMITED error code');
+  assert.strictEqual(rateLimitedResult.canFallbackManual, true, 'Must offer manual fallback');
+  assert.strictEqual(rateLimitedResult.canUploadMedia, true, 'Must offer media upload fallback');
+  assert.ok(rateLimitedResult.error.includes('captcha') || rateLimitedResult.error.includes('rate-limit'), 'Error message must explain rate-limit / captcha');
+  console.log('  ✓ Rate limit protection verified: immediately aborts without spamming YouTube and offers fallback');
+
+  // Clear cooldown
+  cache.clear();
+  assert.strictEqual(cache.isCooldownActive(), false, 'Cooldown should be cleared');
+
+  // Test 36: Text & Subtitle File (.TXT, .SRT, .VTT) Transcription & Timestamps
+  console.log('\nTest 36: Text File & Subtitle (.TXT, .SRT, .VTT) Transcription & Timestamps');
+  // 1. Plain text with bracketed timestamps
+  const plainTextTranscript = `[00:00] Welcome to the Operating Systems lecture on CPU Scheduling.\n[01:15] FCFS, SJF, and Round Robin are standard non-preemptive and preemptive algorithms.`;
+  const parsedPlain = await transcriptionService.transcribeTextFile({ rawText: plainTextTranscript, fileName: 'lecture.txt' });
+  assert.strictEqual(parsedPlain.success, true);
+  assert.strictEqual(parsedPlain.wordCount > 0, true);
+  assert.strictEqual(parsedPlain.timestampedTranscript.length, 2);
+  assert.strictEqual(parsedPlain.timestampedTranscript[0].timestamp, '[00:00]');
+  assert.strictEqual(parsedPlain.timestampedTranscript[1].timestamp, '[01:15]');
+  console.log(`  ✓ Bracketed timestamps parsed: ${parsedPlain.timestampedTranscript.length} sections (${parsedPlain.wordCount} words)`);
+
+  // 2. SRT subtitle format parsing
+  const srtContent = `1\n00:01:20,000 --> 00:01:25,000\nProcess synchronization involves semaphores and mutexes.\n\n2\n00:01:26,000 --> 00:01:30,000\nDeadlock occurs when four Coffman conditions hold simultaneously.`;
+  const parsedSrt = await transcriptionService.transcribeTextFile({ rawText: srtContent, fileName: 'subtitles.srt' });
+  assert.strictEqual(parsedSrt.success, true);
+  assert.strictEqual(parsedSrt.timestampedTranscript.length, 2);
+  assert.strictEqual(parsedSrt.timestampedTranscript[0].timestamp, '[01:20]');
+  assert.strictEqual(parsedSrt.timestampedTranscript[1].timestamp, '[01:26]');
+  console.log(`  ✓ SRT subtitle timecodes converted to standard [mm:ss] format: ${parsedSrt.timestampedTranscript.length} lines`);
+
+  // 3. HTTP Endpoint POST /transcription/api/upload-text-file
+  const uploadTextRes = await fetch(`${baseUrl}/transcription/api/upload-text-file`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: srtContent })
+  });
+  assert.strictEqual(uploadTextRes.status, 200);
+  const uploadTextData = await uploadTextRes.json();
+  assert.strictEqual(uploadTextData.success, true);
+  assert.ok(uploadTextData.wordCount > 0);
+  console.log('  ✓ POST /transcription/api/upload-text-file verified');
+
+  // Test 37: End-to-End Transcription Integration with AI Study Materials & Planner
+  console.log('\nTest 37: End-to-End Transcription Integration with AI Study Materials & Planner');
+  const e2eSaved = await transcriptionService.saveTranscriptAndNotes({
+    title: 'Operating Systems: Process Synchronization Masterclass',
+    categoryType: 'curriculum',
+    categoryId: 'operating_systems',
+    categoryName: 'Operating Systems',
+    topicTitle: 'Process Synchronization and Semaphores',
+    sourceType: 'manual',
+    rawText: srtContent,
+    studyMaterials: {},
+    markCompleted: false
+  });
+  assert.ok(e2eSaved.transcript._id, 'Transcript must be saved in database');
+  assert.ok(e2eSaved.notes._id, 'Notes must be linked');
+  assert.ok(e2eSaved.notes.flashcards.length >= 2, 'Notes must have flashcards populated');
+  assert.ok(e2eSaved.notes.practiceMcqs.length >= 2, 'Notes must have MCQs populated');
+
+  // Clean up
+  await transcriptionService.deleteTranscript(e2eSaved.transcript._id);
+  console.log('  ✓ End-to-end integration verified: LectureTranscript, LectureNotes, and normalized study pack created');
+
   server.close();
 
-  console.log('\n🎉 ALL 32 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! Cancel and Delete functionalities across Planner, Notices, PYQs, Library, Transcripts, Explore Roadmaps, and Subjects are fully validated and operational.');
+  console.log('\n🎉 ALL 37 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! YouTube transcription, error handling, rate-limit protection, text file upload, and study packs are fully validated and operational.');
 }
 
 runTests().catch(err => {

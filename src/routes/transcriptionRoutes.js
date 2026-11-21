@@ -57,6 +57,24 @@ router.post('/api/fetch-youtube', async (req, res) => {
   }
 });
 
+// POST /transcription/api/upload-text-file - Upload and parse .txt, .srt, .vtt transcript file
+router.post('/api/upload-text-file', upload.single('transcriptFile'), async (req, res) => {
+  try {
+    if (!req.file && !req.body.text) {
+      return res.status(400).json({ success: false, error: 'Please upload a transcript file or provide text.' });
+    }
+
+    const result = await transcriptionService.transcribeTextFile({
+      file: req.file,
+      rawText: req.body.text,
+      fileName: req.file ? req.file.originalname : 'transcript.txt'
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /transcription/api/upload-media - Upload Audio/Video/Recording & Transcribe Speech-to-Text
 router.post('/api/upload-media', upload.single('mediaFile'), async (req, res) => {
   try {

@@ -13,16 +13,29 @@ class TranscriptionService {
    */
   async transcribeYouTube({ url, language = 'en' }) {
     if (!url || typeof url !== 'string') {
-      return { success: false, error: 'A valid YouTube URL or Video ID is required.' };
+      return {
+        success: false,
+        errorCode: 'INVALID_URL',
+        error: 'A valid YouTube URL or Video ID is required.',
+        canUploadManual: true,
+        canFallbackManual: true,
+        canUploadMedia: true
+      };
     }
 
     const result = await youtubeService.fetchTranscript(url, language);
     if (!result.success) {
       return {
         success: false,
+        videoId: result.videoId,
+        errorCode: result.errorCode || 'TRANSCRIPT_NOT_AVAILABLE',
         error: result.error || 'Captions are disabled or unavailable for this YouTube lecture.',
+        details: result.details || 'Please paste the transcript or upload a file manually.',
         metadata: result.metadata,
-        canUploadManual: true
+        canUploadManual: true,
+        canFallbackManual: true,
+        canUploadMedia: true,
+        suggestedAction: result.suggestedAction || 'manual_paste_or_upload'
       };
     }
 
@@ -52,6 +65,135 @@ class TranscriptionService {
       timestampedTranscript: rawItems,
       timestampedText: result.timestampedText,
       fullText: result.fullText
+    };
+  }
+
+  /**
+   * Parses manual text or uploaded subtitle/text files (.txt, .srt, .vtt)
+   */
+  async transcribeTextFile({ file, rawText, fileName }) {
+    let content = '';
+    let name = fileName || 'transcript.txt';
+
+    if (file) {
+      name = file.originalname || 'uploaded_transcript.txt';
+      if (file.buffer) {
+        content = file.buffer.toString('utf-8');
+      } else if (file.path && fs.existsSync(file.path)) {
+        content = fs.readFileSync(file.path, 'utf-8');
+        try { fs.unlinkSync(file.path); } catch (e) {}
+      }
+    } else if (rawText) {
+      content = rawText;
+    }
+
+    if (!content || !content.trim()) {
+      return { success: false, error: 'No transcript text was provided.' };
+    }
+
+    // Clean up UTF-8 BOM if present
+    content = content.replace(/^\uFEFF/, '');
+
+    // Check if SRT or VTT format: parse timestamps and clean text
+    const lines = content.split(/\r?\n/);
+    const parsedItems = [];
+    let currentOffsetSec = 0;
+    let currentTimestamp = '[00:00]';
+    let textBuffer = [];
+
+    // Check for SRT/VTT timecode pattern: 00:01:20,000 --> 00:01:25,000 or 01:20.000 --> 01:25.000
+    const timecodeRegex = /(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.]\d{3}\s*-->/;
+    // Check for standard bracketed timestamp pattern: [01:23]
+    const bracketRegex = /\[(\d{1,2}):(\d{2})\]/;
+
+    let isSrtOrVtt = lines.some(l => timecodeRegex.test(l));
+
+    if (isSrtOrVtt) {
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'WEBVTT' || /^\d+$/.test(trimmed)) continue;
+
+        const tcMatch = trimmed.match(timecodeRegex);
+        if (tcMatch) {
+          if (textBuffer.length > 0) {
+            parsedItems.push({
+              timestamp: currentTimestamp,
+              offsetSec: currentOffsetSec,
+              text: textBuffer.join(' ')
+            });
+            textBuffer = [];
+          }
+          const hours = parseInt(tcMatch[1] || '0', 10);
+          const mins = parseInt(tcMatch[2], 10) + hours * 60;
+          const secs = parseInt(tcMatch[3], 10);
+          currentOffsetSec = mins * 60 + secs;
+          currentTimestamp = `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
+        } else {
+          textBuffer.push(trimmed.replace(/<[^>]+>/g, ''));
+        }
+      }
+      if (textBuffer.length > 0) {
+        parsedItems.push({
+          timestamp: currentTimestamp,
+          offsetSec: currentOffsetSec,
+          text: textBuffer.join(' ')
+        });
+      }
+    } else {
+      // Check line-by-line bracketed timestamps
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const bMatch = trimmed.match(/^\[(\d{1,2}):(\d{2})\]\s*(.*)$/);
+        if (bMatch) {
+          const mins = parseInt(bMatch[1], 10);
+          const secs = parseInt(bMatch[2], 10);
+          parsedItems.push({
+            timestamp: `[${bMatch[1].padStart(2, '0')}:${bMatch[2].padStart(2, '0')}]`,
+            offsetSec: mins * 60 + secs,
+            text: bMatch[3]
+          });
+        }
+      }
+    }
+
+    let timestampedText = '';
+    let fullText = '';
+
+    if (parsedItems.length > 0) {
+      timestampedText = parsedItems.map(p => `${p.timestamp} ${p.text}`).join('\n');
+      fullText = parsedItems.map(p => p.text).join(' ');
+    } else {
+      // Plain text without timestamps: create paragraph chunks
+      const paragraphs = content.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+      let sec = 0;
+      paragraphs.forEach(para => {
+        const mins = Math.floor(sec / 60).toString().padStart(2, '0');
+        const s = (sec % 60).toString().padStart(2, '0');
+        const ts = `[${mins}:${s}]`;
+        parsedItems.push({
+          timestamp: ts,
+          offsetSec: sec,
+          text: para.replace(/\s+/g, ' ')
+        });
+        sec += Math.max(15, Math.min(120, Math.round(para.split(/\s+/).length * 0.4)));
+      });
+      timestampedText = parsedItems.map(p => `${p.timestamp} ${p.text}`).join('\n\n');
+      fullText = content.replace(/\s+/g, ' ').trim();
+    }
+
+    const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+
+    return {
+      success: true,
+      sourceType: 'manual',
+      fileName: name,
+      language: 'en (manual)',
+      wordCount,
+      timestampedTranscript: parsedItems,
+      timestampedText,
+      fullText
     };
   }
 

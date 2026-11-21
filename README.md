@@ -87,10 +87,25 @@ Computer Science Engineering students face severe friction in academic preparati
 * Deep curriculum breakdown across core CSE subjects (OOPS with Java, DSA with Java, Operating Systems, Discrete Mathematics, Digital Electronics, and custom electives).
 * Interactive progress tracking per topic with instant completion percentage meters and progress rings.
 
-### 4. 🔗 YouTube Lecture URL Transcription
-* One-click ingestion of educational YouTube videos and playlists.
-* Automated video ID extraction supporting standard YouTube URLs, short URLs (`youtu.be`), Shorts, and embed links.
-* Direct captions extraction converted into structured, readable transcripts.
+### 4. 🔗 Resilient YouTube Lecture Transcription & Rate-Limit Protection
+* **Multi-Strategy Ingestion:** Ingests educational YouTube lectures and playlists using a resilient, multi-tiered pipeline:
+  1. *In-Memory Caching Layer:* Rapidly serves recent queries from memory with configurable TTL without making redundant outbound requests to YouTube.
+  2. *Multi-Client InnerTube Player API:* Queries subtitle tracklists using standard desktop and mobile player contexts, inspecting all available caption tracks in a single network pass rather than issuing repetitive scraping loops.
+  3. *Direct TimedText Subtitle Extraction:* Direct XML and srv3 parsing for timed text subtitle tracks.
+  4. *Official YouTube Data API v3 Fallback:* Seamlessly leverages `YOUTUBE_API_KEY` (if configured in `.env`) for official metadata and caption discovery.
+  5. *`youtube-transcript` Library Integration:* Gracefully integrated as a secondary fallback.
+* **Intelligent Rate-Limit & CAPTCHA Protection:** Detects YouTube IP throttling and CAPTCHA challenge requirements (`class="g-recaptcha"` or HTTP 429), immediately activating an automatic cooldown period. This protects your server IP from repeated blocks, respects YouTube's terms and rate limits, and prevents automated scraping loops.
+* **Exponential Backoff & Jitter:** Transient network errors (e.g. timeouts, dropped connections) automatically retry with exponential backoff and randomized jitter. Rate limits and permanent errors (private/deleted videos, disabled captions) abort immediately without wasteful retries.
+* **Precise Error Categorization & Actionable Guidance:** Never falsely claims successful transcription when subtitles cannot be retrieved. Clearly distinguishes between:
+  - `RATE_LIMITED`: Explains IP rate limiting and cooldown status.
+  - `CAPTIONS_DISABLED`: Identifies when creators have turned off closed captions.
+  - `TRANSCRIPT_NOT_AVAILABLE`: Identifies videos lacking subtitle tracks.
+  - `VIDEO_UNAVAILABLE`: Identifies private, restricted, or deleted videos.
+  - `NETWORK_ERROR`: Identifies connection drops.
+* **Triple Alternative Fallback Channels:** When YouTube captions are restricted:
+  - 📝 *Manual Transcript Paste:* Paste speaking notes or lecture transcripts directly.
+  - 📄 *Text & Subtitle File Upload:* Upload local `.txt`, `.srt`, or `.vtt` files with automatic timecode extraction into standard `[mm:ss]` format.
+  - 🎙️ *Media Speech-to-Text:* Upload local `.mp3`, `.wav`, `.m4a`, `.webm`, or `.mp4` recordings (up to 50MB) for AI multimodal speech-to-text transcription.
 
 ### 5. 🎙️ Video / Audio Lecture Upload & Transcription
 * Direct multipart upload support for local lecture audio and video files (`.mp3`, `.mp4`, `.wav`, `.webm`, `.m4a`).
@@ -354,6 +369,9 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 # Optional: OpenAI API Configuration (Fallback provider)
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
+
+# Optional: YouTube Data API v3 Key (Fallback for enhanced metadata and official caption inspection)
+YOUTUBE_API_KEY=
 
 # Optional: External Database Connection (If connecting MongoDB Atlas)
 # MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/csestudyhub?retryWrites=true&w=majority

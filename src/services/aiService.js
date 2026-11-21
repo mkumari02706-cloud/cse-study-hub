@@ -34,9 +34,10 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
   const modelsToTry = [
     preferredModel,
     process.env.GEMINI_MODEL,
-    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-flash-latest',
     'gemini-flash-lite-latest',
-    'gemini-flash-latest'
+    'gemini-3.5-flash-lite'
   ].filter((m, idx, arr) => m && typeof m === 'string' && m.trim() && arr.indexOf(m) === idx);
 
   let lastError = null;
@@ -49,7 +50,8 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
           'Content-Type': 'application/json',
           'x-goog-api-key': cleanKey
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000) // 10s timeout per attempt to avoid hanging
       });
 
       if (!res.ok) {

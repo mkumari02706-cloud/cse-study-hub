@@ -1,5 +1,121 @@
 [
   {
+    "id": "pyq_1795261945239_3jaq",
+    "subjectId": "oops_java",
+    "subjectName": "OOPS with Java",
+    "unitNumber": 1,
+    "year": "2023",
+    "examType": "University Exam",
+    "originalFileName": "2023_University_Exam_Original.txt",
+    "originalFilePath": "/home/shwati-kumari/CSE-Study-Hub/01_OOPS_Java/04_PYQs/2023_University_Exam/2023_University_Exam_Original.txt",
+    "questionsFilePath": "/home/shwati-kumari/CSE-Study-Hub/01_OOPS_Java/04_PYQs/2023_University_Exam/Extracted_Questions.md",
+    "extractedQuestions": "### Question 1(a) (7 Marks) [Theory]\n- **Syllabus Topic**: JVM, JRE, JDK Architecture\n- **Content**: Explain JVM, JRE, JDK Architecture with a neat diagram.\n\n---\n\n### Question 1(b) (7 Marks) [Theory]\n- **Syllabus Topic**: Method Overloading vs Overriding\n- **Content**: Differentiate between Method Overloading and Method Overriding.\n\n---\n\n### Question 2(a) (7 Marks) [Theory]\n- **Syllabus Topic**: Exception Hierarchy (Checked vs Unchecked)\n- **Content**: Explain Exception Hierarchy in Java with Checked vs Unchecked exceptions.\n\n---\n\n### Question 3(a) (10 Marks) [Code]\n- **Syllabus Topic**: Inter-thread Communication (wait/notify)\n- **Content**: Write a Java program implementing Producer-Consumer problem using wait() and notify().\n\n---\n\n### Question 4(a) (5 Marks) [Theory]\n- **Syllabus Topic**: Inheritance Types & Dynamic Method Dispatch\n- **Content**: Explain dynamic method dispatch with an example.\n",
+    "structuredQuestions": [
+      {
+        "qNum": "1(a)",
+        "question": "Explain JVM, JRE, JDK Architecture with a neat diagram.",
+        "marks": 7,
+        "topic": "JVM, JRE, JDK Architecture",
+        "unit": 1,
+        "type": "Theory"
+      },
+      {
+        "qNum": "1(b)",
+        "question": "Differentiate between Method Overloading and Method Overriding.",
+        "marks": 7,
+        "topic": "Method Overloading vs Overriding",
+        "unit": 2,
+        "type": "Theory"
+      },
+      {
+        "qNum": "2(a)",
+        "question": "Explain Exception Hierarchy in Java with Checked vs Unchecked exceptions.",
+        "marks": 7,
+        "topic": "Exception Hierarchy (Checked vs Unchecked)",
+        "unit": 4,
+        "type": "Theory"
+      },
+      {
+        "qNum": "3(a)",
+        "question": "Write a Java program implementing Producer-Consumer problem using wait() and notify().",
+        "marks": 10,
+        "topic": "Inter-thread Communication (wait/notify)",
+        "unit": 5,
+        "type": "Code"
+      },
+      {
+        "qNum": "4(a)",
+        "question": "Explain dynamic method dispatch with an example.",
+        "marks": 5,
+        "topic": "Inheritance Types & Dynamic Method Dispatch",
+        "unit": 3,
+        "type": "Theory"
+      }
+    ],
+    "isScannedPaper": false,
+    "totalQuestions": 5,
+    "totalMarks": 36,
+    "createdAt": "2026-11-21T11:52:25.239Z"
+  },
+  {
+    "id": "pyq_1795261646023_ypro",
+    "subjectId": "oops_java",
+    "subjectName": "OOPS with Java",
+    "unitNumber": 1,
+    "year": "2023",
+    "examType": "University Exam",
+    "originalFileName": "2023_University_Exam_Original.txt",
+    "originalFilePath": "/home/shwati-kumari/CSE-Study-Hub/01_OOPS_Java/04_PYQs/2023_University_Exam/2023_University_Exam_Original.txt",
+    "questionsFilePath": "/home/shwati-kumari/CSE-Study-Hub/01_OOPS_Java/04_PYQs/2023_University_Exam/Extracted_Questions.md",
+    "extractedQuestions": "### Question 1(a) (7 Marks) [Theory]\n- **Syllabus Topic**: JVM, JRE, JDK Architecture\n- **Content**: Explain JVM, JRE, JDK Architecture with a neat diagram.\n\n---\n\n### Question 1(b) (7 Marks) [Theory]\n- **Syllabus Topic**: Method Overloading vs Overriding\n- **Content**: Differentiate between Method Overloading and Method Overriding.\n\n---\n\n### Question 2(a) (7 Marks) [Theory]\n- **Syllabus Topic**: Exception Hierarchy (Checked vs Unchecked)\n- **Content**: Explain Exception Hierarchy in Java with Checked vs Unchecked exceptions.\n\n---\n\n### Question 3(a) (10 Marks) [Code]\n- **Syllabus Topic**: Inter-thread Communication (wait/notify)\n- **Content**: Write a Java program implementing Producer-Consumer problem using wait() and notify().\n\n---\n\n### Question 4(a) (5 Marks) [Theory]\n- **Syllabus Topic**: Inheritance Types & Dynamic Method Dispatch\n- **Content**: Explain dynamic method dispatch with an example.\n",
+    "structuredQuestions": [
+      {
+        "qNum": "1(a)",
+        "question": "Explain JVM, JRE, JDK Architecture with a neat diagram.",
+        "marks": 7,
+        "topic": "JVM, JRE, JDK Architecture",
+        "unit": 1,
+        "type": "Theory"
+      },
+      {
+        "qNum": "1(b)",
+        "question": "Differentiate between Method Overloading and Method Overriding.",
+        "marks": 7,
+        "topic": "Method Overloading vs Overriding",
+        "unit": 2,
+        "type": "Theory"
+      },
+      {
+        "qNum": "2(a)",
+        "question": "Explain Exception Hierarchy in Java with Checked vs Unchecked exceptions.",
+        "marks": 7,
+        "topic": "Exception Hierarchy (Checked vs Unchecked)",
+        "unit": 3,
+        "type": "Theory"
+      },
+      {
+        "qNum": "3(a)",
+        "question": "Write a Java program implementing Producer-Consumer problem using wait() and notify().",
+        "marks": 10,
+        "topic": "Inter-thread Communication (wait/notify)",
+        "unit": 4,
+        "type": "Code"
+      },
+      {
+        "qNum": "4(a)",
+        "question": "Explain dynamic method dispatch with an example.",
+        "marks": 5,
+        "topic": "Inheritance Types & Dynamic Method Dispatch",
+        "unit": 2,
+        "type": "Theory"
+      }
+    ],
+    "isScannedPaper": false,
+    "totalQuestions": 5,
+    "totalMarks": 36,
+    "createdAt": "2026-11-21T11:47:26.023Z"
+  },
+  {
     "id": "pyq_1795255028942_q4nc",
     "subjectId": "oops_java",
     "subjectName": "OOPS with Java",
