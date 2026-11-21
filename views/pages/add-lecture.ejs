@@ -106,18 +106,7 @@
         <!-- Manual Transcript & Media Fallback Box -->
         <div id="manualTranscriptBox" class="hidden" style="margin-top: 16px; padding: 18px; background: var(--bg-primary); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
-            <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0;">📝 Production Fallback & Manual Input Options</h4>
-            <span id="cloudNoticeBadge" class="badge" style="background: var(--accent-light); color: var(--accent-primary); font-size: 0.75rem; padding: 3px 8px; border-radius: 4px;">Render / Cloud Supported</span>
-          </div>
-          
-          <div id="ytGuideBox" class="alert alert-info" style="font-size: 0.82rem; margin-bottom: 14px; background: rgba(59, 130, 246, 0.08); border-left: 3px solid var(--accent-primary); padding: 10px 14px;">
-            <strong>💡 Fast Copy from YouTube (Recommended for Cloud Server):</strong>
-            <ol style="margin: 6px 0 6px 18px; padding: 0;">
-              <li>Click the <strong>Open Video on YouTube</strong> link above (or open your video).</li>
-              <li>Under the video player, click <strong>"... More"</strong> and select <strong>"Show transcript"</strong>.</li>
-              <li>Select and copy the transcript text, then paste it in the box below (or drop a saved .txt / .srt file).</li>
-            </ol>
-            <span>Our system automatically cleans up all YouTube timestamps and formats the transcript!</span>
+            <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0;">📝 Alternative Input Options (Subtitle / Media)</h4>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
@@ -131,11 +120,11 @@
             </div>
           </div>
 
-          <label class="form-label" for="manualTranscriptArea" style="font-size: 0.82rem; font-weight: 600;">Or Paste Lecture Transcript / Speaker Notes:</label>
-          <textarea id="manualTranscriptArea" class="form-control" rows="6" placeholder="Paste transcript text, YouTube player transcript, or lecture notes here..."></textarea>
+          <label class="form-label" for="manualTranscriptArea" style="font-size: 0.82rem; font-weight: 600;">Or Provide Lecture Transcript / Speaker Notes:</label>
+          <textarea id="manualTranscriptArea" class="form-control" rows="6" placeholder="Transcript text or lecture notes..."></textarea>
           <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <button type="button" id="useManualBtn" class="btn btn-secondary btn-sm">
-              <span>Use Pasted Transcript</span>
+              <span>Use Provided Transcript</span>
             </button>
             <span style="font-size: 0.78rem; color: var(--text-muted);">Transcripts saved here are cached permanently on the server.</span>
           </div>

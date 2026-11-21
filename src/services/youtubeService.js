@@ -432,7 +432,14 @@ function formatTranscript(items) {
   }
 
   const timestamped = items.map(item => {
-    const totalSecs = Math.floor((item.offset || 0) / (item.offset > 10000 ? 1000 : 1));
+    let totalSecs = 0;
+    if (item.offsetSec !== undefined) {
+      totalSecs = item.offsetSec;
+    } else if (item.offset > 1000 || items[items.length - 1]?.offset > 1800) {
+      totalSecs = Math.floor((item.offset || 0) / 1000);
+    } else {
+      totalSecs = Math.floor(item.offset || 0);
+    }
     const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
     const secs = (totalSecs % 60).toString().padStart(2, '0');
     const cleanText = (item.text || '').replace(/\s+/g, ' ').trim();
@@ -457,7 +464,7 @@ function parseTranscriptXml(xml, lang = 'en') {
   if (!xml || typeof xml !== 'string') return [];
   const results = [];
 
-  // Format 1: srv3 (<p t="ms" d="ms"><s>word</s>...</p>)
+  // Format 1: srv3 (<p t="ms" d="ms"><s>word</s> or <w t="ms">word</w> or text</p>)
   const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
   let match;
   while ((match = pRegex.exec(xml)) !== null) {
@@ -473,12 +480,13 @@ function parseTranscriptXml(xml, lang = 'en') {
     if (!text) {
       text = inner.replace(/<[^>]+>/g, '');
     }
-    text = decodeEntities(text).trim();
+    text = decodeEntities(text).replace(/\s+/g, ' ').trim();
     if (text) {
       results.push({
         text,
         duration: durMs,
         offset: startMs,
+        offsetSec: Math.floor(startMs / 1000),
         lang
       });
     }
@@ -492,11 +500,12 @@ function parseTranscriptXml(xml, lang = 'en') {
   while ((tMatch = textRegex.exec(xml)) !== null) {
     const startSec = parseFloat(tMatch[1]) || 0;
     const durSec = parseFloat(tMatch[2]) || 0;
-    const text = decodeEntities(tMatch[3].replace(/<[^>]+>/g, '')).trim();
+    const text = decodeEntities(tMatch[3].replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
     if (text) {
       results.push({
         text,
         offset: Math.round(startSec * 1000),
+        offsetSec: Math.floor(startSec),
         duration: Math.round(durSec * 1000),
         lang
       });
@@ -549,19 +558,37 @@ async function withExponentialBackoff(fn, { maxRetries = 2, baseDelayMs = 400 } 
 
 /**
  * Strategy 1: Multi-Client InnerTube Player API
- * Queries YouTube's player API with desktop WEB context to retrieve all caption tracks at once.
+ * Uses mobile and VR client contexts which bypass desktop BotGuard / PoToken restrictions.
+ * Accurately extracts both manual closed captions and auto-generated (ASR) subtitles.
  */
 async function fetchViaInnerTube(videoId, requestedLang = 'en') {
   const clients = [
     {
-      name: 'WEB',
-      version: '2.20240313.01.00',
-      userAgent: getRandomUserAgent()
-    },
-    {
       name: 'ANDROID',
       version: '20.10.38',
-      userAgent: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)'
+      userAgent: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14; Pixel 7 Pro Build/UQ1A.240205.004)',
+      headers: {
+        'X-YouTube-Client-Name': '3',
+        'X-YouTube-Client-Version': '20.10.38'
+      }
+    },
+    {
+      name: 'ANDROID_VR',
+      version: '1.61.48',
+      userAgent: 'Mozilla/5.0 (Linux; Android 12; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
+      headers: {
+        'X-YouTube-Client-Name': '72',
+        'X-YouTube-Client-Version': '1.61.48'
+      }
+    },
+    {
+      name: 'IOS',
+      version: '19.45.4',
+      userAgent: 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 17_5 like Mac OS X)',
+      headers: {
+        'X-YouTube-Client-Name': '5',
+        'X-YouTube-Client-Version': '19.45.4'
+      }
     }
   ];
 
@@ -573,7 +600,8 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': client.userAgent
+            'User-Agent': client.userAgent,
+            ...(client.headers || {})
           },
           body: JSON.stringify({
             context: {
@@ -595,23 +623,16 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
       const playability = data?.playabilityStatus?.status;
       const reason = data?.playabilityStatus?.reason || '';
 
-      // Accurate detection of YouTube datacenter bot challenges vs true unplayable/private video
-      const isBotChallenge = playability === 'LOGIN_REQUIRED' && (
-        !reason ||
-        /bot|captcha|unusual traffic|sign in to confirm|verify/i.test(reason)
-      );
-
-      if (isBotChallenge) {
-        cache.setRateLimitCooldown(60 * 1000, `YouTube cloud IP verification challenge: ${reason || 'Bot challenge / Login required'}`);
-        const err = new Error(`YouTube has rate-limited automated caption fetching from this server IP (${reason || 'CAPTCHA verification required'}).`);
-        err.code = 'RATE_LIMITED';
-        throw err;
+      if (playability === 'LOGIN_REQUIRED') {
+        const isBotChallenge = !reason || /bot|captcha|unusual traffic|sign in to confirm|verify/i.test(reason);
+        if (isBotChallenge) {
+          // Continue to next mobile client rather than aborting immediately
+          continue;
+        }
       }
 
-      if (playability === 'UNPLAYABLE' || playability === 'ERROR' || playability === 'LOGIN_REQUIRED') {
-        const err = new Error(reason || 'Video is unavailable or private.');
-        err.code = 'VIDEO_UNAVAILABLE';
-        throw err;
+      if (playability !== 'OK') {
+        continue;
       }
 
       const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
@@ -619,22 +640,42 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
         continue;
       }
 
-      // Pick the best track from the track list in a single pass:
-      // 1. Requested language (exact)
-      // 2. Requested language (prefix, e.g. en-US for en)
-      // 3. English track
-      // 4. Hindi track
-      // 5. First available track
-      let chosenTrack = captionTracks.find(t => t.languageCode === requestedLang);
+      // Pick the best track from the track list:
+      // 1. Requested language (exact, manual)
+      let chosenTrack = captionTracks.find(t => t.languageCode === requestedLang && t.kind !== 'asr');
+      // 2. Requested language (exact, auto-generated ASR)
+      if (!chosenTrack) {
+        chosenTrack = captionTracks.find(t => t.languageCode === requestedLang);
+      }
+      // 3. Requested language (prefix, manual)
+      if (!chosenTrack) {
+        chosenTrack = captionTracks.find(t => t.languageCode && t.languageCode.startsWith(requestedLang) && t.kind !== 'asr');
+      }
+      // 4. Requested language (prefix, auto-generated)
       if (!chosenTrack) {
         chosenTrack = captionTracks.find(t => t.languageCode && t.languageCode.startsWith(requestedLang));
       }
+      // 5. English track (manual)
       if (!chosenTrack && requestedLang !== 'en') {
-        chosenTrack = captionTracks.find(t => t.languageCode === 'en' || (t.languageCode && t.languageCode.startsWith('en')));
+        chosenTrack = captionTracks.find(t => (t.languageCode === 'en' || t.languageCode?.startsWith('en')) && t.kind !== 'asr');
       }
+      // 6. English track (auto-generated)
+      if (!chosenTrack && requestedLang !== 'en') {
+        chosenTrack = captionTracks.find(t => t.languageCode === 'en' || t.languageCode?.startsWith('en'));
+      }
+      // 7. Hindi track (manual)
       if (!chosenTrack && requestedLang !== 'hi') {
-        chosenTrack = captionTracks.find(t => t.languageCode === 'hi');
+        chosenTrack = captionTracks.find(t => (t.languageCode === 'hi' || t.languageCode?.startsWith('hi')) && t.kind !== 'asr');
       }
+      // 8. Hindi track (auto-generated)
+      if (!chosenTrack && requestedLang !== 'hi') {
+        chosenTrack = captionTracks.find(t => t.languageCode === 'hi' || t.languageCode?.startsWith('hi'));
+      }
+      // 9. First available manual track
+      if (!chosenTrack) {
+        chosenTrack = captionTracks.find(t => t.kind !== 'asr');
+      }
+      // 10. First available track (including auto-generated)
       if (!chosenTrack) {
         chosenTrack = captionTracks[0];
       }
@@ -662,12 +703,12 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
         return {
           items,
           language: chosenTrack.languageCode || requestedLang,
-          isAutoGenerated: Boolean(chosenTrack.kind === 'asr')
+          isAutoGenerated: Boolean(chosenTrack.kind === 'asr'),
+          trackName: chosenTrack.name?.runs?.[0]?.text || chosenTrack.name?.simpleText || ''
         };
       }
-    } catch (err) {
-      if (err.code === 'VIDEO_UNAVAILABLE' || err.code === 'RATE_LIMITED') throw err;
-      if (err.message?.includes('too many requests') || err.message?.includes('captcha') || err.message?.includes('rate-limited')) throw err;
+    } catch {
+      continue;
     }
   }
 
@@ -675,7 +716,127 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
 }
 
 /**
- * Strategy 2: Direct TimedText API
+ * Strategy 2: Web page HTML scraping fallback
+ * Scrapes ytInitialPlayerResponse from the YouTube watch page.
+ */
+async function fetchViaWebPageScraping(videoId, requestedLang = 'en') {
+  try {
+    const pageUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+    const res = await withExponentialBackoff(async () => {
+      return await fetch(pageUrl, {
+        headers: {
+          'User-Agent': getRandomUserAgent(),
+          'Accept-Language': requestedLang
+        }
+      });
+    });
+
+    if (!res.ok) return null;
+    const html = await res.text();
+    if (html.includes('class="g-recaptcha"')) {
+      return null;
+    }
+
+    const startToken = 'var ytInitialPlayerResponse = ';
+    let startIndex = html.indexOf(startToken);
+    let playerResponse = null;
+
+    if (startIndex !== -1) {
+      const jsonStart = startIndex + startToken.length;
+      let depth = 0;
+      for (let i = jsonStart; i < html.length; i++) {
+        if (html[i] === '{') depth++;
+        else if (html[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            try {
+              playerResponse = JSON.parse(html.slice(jsonStart, i + 1));
+            } catch {}
+            break;
+          }
+        }
+      }
+    }
+
+    if (!playerResponse) {
+      const match = html.match(/ytInitialPlayerResponse\s*=\s*({.+?});(?:var|\s*<\/script>)/s);
+      if (match && match[1]) {
+        try { playerResponse = JSON.parse(match[1]); } catch {}
+      }
+    }
+
+    const captionTracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!Array.isArray(captionTracks) || captionTracks.length === 0) {
+      return null;
+    }
+
+    let chosenTrack = captionTracks.find(t => t.languageCode === requestedLang && t.kind !== 'asr') ||
+                      captionTracks.find(t => t.languageCode === requestedLang) ||
+                      captionTracks.find(t => t.languageCode && t.languageCode.startsWith(requestedLang)) ||
+                      captionTracks.find(t => t.languageCode === 'en' || t.languageCode?.startsWith('en')) ||
+                      captionTracks[0];
+
+    if (!chosenTrack || !chosenTrack.baseUrl) return null;
+
+    const trackRes = await fetch(chosenTrack.baseUrl, {
+      headers: {
+        'User-Agent': getRandomUserAgent(),
+        'Accept-Language': requestedLang
+      }
+    });
+
+    if (!trackRes.ok) return null;
+    const xml = await trackRes.text();
+    const items = parseTranscriptXml(xml, chosenTrack.languageCode || requestedLang);
+    if (items.length > 0) {
+      return {
+        items,
+        language: chosenTrack.languageCode || requestedLang,
+        isAutoGenerated: Boolean(chosenTrack.kind === 'asr')
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Strategy 3: Standard youtube-transcript library fallback (with flexible language matching)
+ */
+async function fetchViaYoutubeTranscriptLib(videoId, requestedLang = 'en') {
+  if (cache.isCooldownActive()) {
+    return null;
+  }
+
+  try {
+    let items;
+    try {
+      items = await YoutubeTranscript.fetchTranscript(videoId, { lang: requestedLang });
+    } catch {
+      // Fallback: try without language constraint to grab the available subtitle track
+      items = await YoutubeTranscript.fetchTranscript(videoId);
+    }
+
+    if (items && items.length > 0) {
+      return {
+        items,
+        language: items[0].lang || requestedLang,
+        isAutoGenerated: false
+      };
+    }
+  } catch (err) {
+    const msg = err.message || '';
+    if (msg.includes('too many requests') || msg.includes('captcha') || msg.includes('g-recaptcha')) {
+      cache.setRateLimitCooldown(60 * 1000, 'YouTube rate limit detected by library');
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Strategy 4: Direct TimedText API
  */
 async function fetchViaTimedText(videoId, lang = 'en') {
   const timedTextUrls = [
@@ -697,12 +858,6 @@ async function fetchViaTimedText(videoId, lang = 'en') {
       if (!res.ok) continue;
       const body = await res.text();
       if (!body || body.includes('class="g-recaptcha"') || body.includes('consent.youtube.com') || body.includes('sorry/index') || body.includes('unusual traffic')) {
-        if (body.includes('class="g-recaptcha"') || body.includes('consent.youtube.com') || body.includes('sorry/index') || body.includes('unusual traffic')) {
-          cache.setRateLimitCooldown(60 * 1000, 'YouTube IP rate limit / Captcha challenge');
-          const err = new Error('YouTube is receiving too many requests from this IP and now requires solving a captcha.');
-          err.code = 'RATE_LIMITED';
-          throw err;
-        }
         continue;
       }
 
@@ -710,54 +865,8 @@ async function fetchViaTimedText(videoId, lang = 'en') {
       if (items.length > 0) {
         return { items, language: lang, isAutoGenerated: false };
       }
-    } catch (err) {
-      if (err.code === 'RATE_LIMITED') throw err;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Strategy 3: Standard youtube-transcript library fallback (with rate-limit interception)
- */
-async function fetchViaYoutubeTranscriptLib(videoId, requestedLang) {
-  // If cooldown is active, abort immediately without hitting YouTube
-  if (cache.isCooldownActive()) {
-    const err = new Error('YouTube rate limit cooldown is currently active.');
-    err.code = 'RATE_LIMITED';
-    throw err;
-  }
-
-  try {
-    const items = await YoutubeTranscript.fetchTranscript(videoId, {
-      lang: requestedLang
-    });
-
-    if (items && items.length > 0) {
-      return {
-        items,
-        language: requestedLang,
-        isAutoGenerated: false
-      };
-    }
-  } catch (err) {
-    const msg = err.message || '';
-    if (msg.includes('too many requests') || msg.includes('captcha') || msg.includes('g-recaptcha')) {
-      cache.setRateLimitCooldown(60 * 1000, 'YouTube rate limit detected by library');
-      const rateErr = new Error('YouTube is receiving too many requests from this IP and now requires solving a captcha.');
-      rateErr.code = 'RATE_LIMITED';
-      throw rateErr;
-    }
-    if (msg.includes('disabled')) {
-      const disErr = new Error(`Transcript is disabled on this video (${videoId})`);
-      disErr.code = 'CAPTIONS_DISABLED';
-      throw disErr;
-    }
-    if (msg.includes('no longer available') || msg.includes('unavailable')) {
-      const unavailErr = new Error(`The video is no longer available (${videoId})`);
-      unavailErr.code = 'VIDEO_UNAVAILABLE';
-      throw unavailErr;
+    } catch {
+      continue;
     }
   }
 
@@ -772,27 +881,24 @@ function categorizeError(err, videoId) {
   const isProd = process.env.NODE_ENV === 'production';
   const isCloudEnv = isProd || Boolean(process.env.RENDER || process.env.VERCEL || process.env.AWS_REGION);
 
-  // 1. Rate Limit / CAPTCHA challenge / Datacenter IP Challenge
+  // 1. Rate Limit / CAPTCHA challenge
   if (
     cache.isCooldownActive() ||
     err?.code === 'RATE_LIMITED' ||
     msg.includes('too many requests') ||
     msg.includes('captcha') ||
     msg.includes('g-recaptcha') ||
-    msg.includes('rate-limit') ||
-    msg.includes('cloud IP')
+    msg.includes('rate-limit')
   ) {
     const remaining = cache.getCooldownRemainingSec() || 60;
     return {
       errorCode: 'RATE_LIMITED',
       isRateLimited: true,
-      error: `YouTube is receiving too many requests from this IP and now requires solving a captcha (Protection active for ${remaining}s).`,
-      details: isCloudEnv
-        ? 'YouTube restricts automated caption queries from cloud hosting data centers (Render, AWS, GCP) and requires CAPTCHA verification. Localhost residential IPs work directly. In production, please paste the transcript or upload a subtitle file (.txt, .srt, .vtt).'
-        : 'YouTube has rate-limited automated subtitle queries from this server. To respect YouTube rate limits, further scraping is temporarily paused. Please paste the transcript text, upload a transcript file, or upload the audio/video file for Speech-to-Text.',
+      error: `YouTube request was temporarily rate-limited (cooldown active for ${remaining}s).`,
+      details: 'YouTube has temporarily rate-limited automated queries from this server IP. Please retry shortly.',
       canFallbackManual: true,
       canUploadMedia: true,
-      suggestedAction: 'manual_paste_or_upload',
+      suggestedAction: 'retry_later',
       environment: {
         isProduction: isProd,
         isCloudDatacenter: isCloudEnv,
@@ -800,11 +906,10 @@ function categorizeError(err, videoId) {
       },
       productionGuidance: {
         videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
-        message: 'You can quickly copy the transcript directly from YouTube in seconds:',
+        message: 'Rate limit guidance:',
         steps: [
-          'Open the video on YouTube (click the button below)',
-          'Click "... More" below the video title and select "Show transcript"',
-          'Select and copy the transcript text, then paste it in the box below (or upload a .txt/.srt file)'
+          'Wait for the rate limit cooldown to expire',
+          'Ensure valid public YouTube URLs are provided'
         ]
       }
     };
@@ -815,10 +920,10 @@ function categorizeError(err, videoId) {
     return {
       errorCode: 'CAPTIONS_DISABLED',
       error: `Captions are disabled by the creator for this video (${videoId}).`,
-      details: 'The video publisher has turned off closed captions. You can paste the transcript or upload a .txt transcript file below.',
+      details: 'The video publisher has turned off closed captions and subtitles.',
       canFallbackManual: true,
       canUploadMedia: true,
-      suggestedAction: 'manual_paste_or_upload'
+      suggestedAction: 'captions_disabled'
     };
   }
 
@@ -839,10 +944,10 @@ function categorizeError(err, videoId) {
     return {
       errorCode: 'NETWORK_ERROR',
       error: `Network timeout connecting to YouTube (${msg.slice(0, 100)}).`,
-      details: 'Could not reach YouTube servers. Please try again or paste the transcript text manually.',
+      details: 'Could not reach YouTube servers. Please try again.',
       canFallbackManual: true,
       canUploadMedia: true,
-      suggestedAction: 'manual_paste_or_upload'
+      suggestedAction: 'retry_later'
     };
   }
 
@@ -850,17 +955,17 @@ function categorizeError(err, videoId) {
   return {
     errorCode: 'TRANSCRIPT_NOT_AVAILABLE',
     error: `No captions or subtitles are available for this video (${videoId}).`,
-    details: 'The video does not have readable subtitles in the requested language. Please paste the transcript or upload audio/video for automated AI Speech-to-Text.',
+    details: 'The video does not have available subtitles or auto-generated captions.',
     canFallbackManual: true,
     canUploadMedia: true,
-    suggestedAction: 'manual_paste_or_upload'
+    suggestedAction: 'no_captions'
   };
 }
 
 /**
  * Main YouTube Transcript Fetcher
- * Implements request caching, rate-limit cooldown, multiple fallback strategies,
- * and clear, non-fabricating error reporting with manual fallback.
+ * Implements request caching, multi-client InnerTube execution, web scraping fallback,
+ * and robust parsing for both manual and auto-generated captions.
  */
 async function fetchTranscript(urlOrId, requestedLang = 'en', options = {}) {
   const videoId = extractVideoId(urlOrId);
@@ -902,17 +1007,17 @@ async function fetchTranscript(urlOrId, requestedLang = 'en', options = {}) {
   let transcriptData = null;
   let lastError = null;
 
-  // 4. Strategy 1: Multi-Client InnerTube API (single-pass inspection of all caption tracks)
+  // 4. Strategy 1: Mobile InnerTube Player API (works directly on Render & localhost)
   try {
     transcriptData = await fetchViaInnerTube(videoId, requestedLang);
   } catch (err) {
     lastError = err;
   }
 
-  // 5. Strategy 2: Direct TimedText API (if InnerTube didn't return data)
+  // 5. Strategy 2: Web page HTML scraping fallback
   if (!transcriptData && !cache.isCooldownActive()) {
     try {
-      transcriptData = await fetchViaTimedText(videoId, requestedLang);
+      transcriptData = await fetchViaWebPageScraping(videoId, requestedLang);
     } catch (err) {
       lastError = err;
     }
@@ -927,9 +1032,18 @@ async function fetchTranscript(urlOrId, requestedLang = 'en', options = {}) {
     }
   }
 
+  // 7. Strategy 4: Direct TimedText API fallback
+  if (!transcriptData && !cache.isCooldownActive()) {
+    try {
+      transcriptData = await fetchViaTimedText(videoId, requestedLang);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
   const metadata = await metadataPromise;
 
-  // 7. Handle failure
+  // 8. Handle failure
   if (!transcriptData || !transcriptData.items || transcriptData.items.length === 0) {
     // Short negative cache (90s) to prevent hammering YouTube on repeated clicks
     cache.set(`yt_negative_${videoId}`, true, 90 * 1000);
@@ -943,7 +1057,7 @@ async function fetchTranscript(urlOrId, requestedLang = 'en', options = {}) {
     };
   }
 
-  // 8. Format successful transcript
+  // 9. Format successful transcript
   const formatted = formatTranscript(transcriptData.items);
   const result = {
     success: true,
