@@ -1,0 +1,940 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <%
+      const plan = (typeof activeExamPlan !== 'undefined' && activeExamPlan && activeExamPlan.plan) ? activeExamPlan.plan : null;
+      const views = (typeof activeExamPlan !== 'undefined' && activeExamPlan && activeExamPlan.views) ? activeExamPlan.views : { dailyTasks: [], weeklySchedule: [], monthlyMap: {} };
+      const expPlan = (typeof activeExplorePlan !== 'undefined' && activeExplorePlan && activeExplorePlan.plan) ? activeExplorePlan.plan : null;
+      const expViews = (typeof activeExplorePlan !== 'undefined' && activeExplorePlan && activeExplorePlan.views) ? activeExplorePlan.views : { dailyTasks: [], weeklySchedule: [] };
+      const exam = (planner.examCountdown && planner.examCountdown[0]) ? planner.examCountdown[0] : null;
+    %>
+
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <span style="font-size: 1.5rem;">📅</span>
+          <h1 class="page-title" style="margin: 0;">Personal Study Planner & Exam Schedule</h1>
+        </div>
+        <p class="page-subtitle">AI-driven personalized timetable powered by confirmed university notices, syllabus topics, PYQ frequency, and daily study hours.</p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" onclick="openGeneratePlanModal()">
+          <span>⚡ Generate / Regenerate AI Plan</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="rescheduleTasks()">
+          <span>🔄 Reschedule Unfinished Tasks</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="openExamModal()">
+          <span>⏱️ Edit Countdown</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Study Plan Hero Banner -->
+    <% if (plan) { %>
+      <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(79, 70, 229, 0.12) 0%, rgba(236, 72, 153, 0.12) 100%); border-left: 5px solid var(--accent-primary);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="text-align: center; background: var(--bg-surface); padding: 14px 22px; border-radius: var(--radius-md); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+              <span style="font-size: 2.2rem; font-weight: 800; color: #dc2626; display: block; line-height: 1;">
+                <%= exam ? exam.daysLeft : 25 %>
+              </span>
+              <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Days Remaining</span>
+            </div>
+
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span class="core-badge" style="background: #ef444420; color: #dc2626; font-weight: 700;">Target Exam Date</span>
+                <span style="font-size: 0.85rem; color: var(--text-muted);"><%= plan.targetDate %></span>
+                <span class="nav-badge"><%= plan.dailyAvailableHours %>h Daily Study Allocation</span>
+              </div>
+              <h2 style="font-size: 1.3rem; font-weight: 800; margin: 0;"><%= plan.title %></h2>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+                Plan Progress: <strong id="heroProgressPercent" style="color: var(--accent-primary);"><%= plan.progressPercentage %>%</strong> (<span id="heroProgressCounts"><%= plan.completedTasks %> of <%= plan.totalTasks %></span> tasks completed)
+              </p>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+              <a href="/notices" class="btn btn-secondary btn-sm">🏛️ Linked Notices</a>
+              <a href="/practice" class="btn btn-primary btn-sm">Take Practice Test →</a>
+              <button type="button" class="btn btn-danger-outline btn-sm cancel-plan-btn" onclick="cancelStudyPlan('<%= plan._id %>')" title="Cancel this active plan">
+                ✕ Cancel Plan
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-container" style="height: 8px; margin-top: 14px; margin-bottom: 0;">
+          <div id="heroProgressBar" class="progress-bar-fill" style="width: <%= plan.progressPercentage %>%; background: linear-gradient(90deg, #8b5cf6, #ec4899);"></div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Schedule View Navigation Tabs: Daily, Weekly, Monthly, Explore Roadmaps -->
+    <div class="card" style="margin-bottom: 24px; padding: 14px 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div class="tabs-nav" style="margin-bottom: 0; border-bottom: none;">
+          <button type="button" class="tab-btn active" id="viewDailyBtn" onclick="switchScheduleView('daily')">☀️ Today's Schedule</button>
+          <button type="button" class="tab-btn" id="viewWeeklyBtn" onclick="switchScheduleView('weekly')">📅 Weekly Timetable</button>
+          <button type="button" class="tab-btn" id="viewMonthlyBtn" onclick="switchScheduleView('monthly')">🗓️ Monthly Preparation Calendar</button>
+          <button type="button" class="tab-btn" id="viewExploreBtn" onclick="switchScheduleView('explore')">🧭 Explore Roadmaps Plan</button>
+        </div>
+
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Today: <strong><%= new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) %></strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 1: Daily Schedule View -->
+    <div id="scheduleDailyView">
+      <div class="card" style="margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <h2 style="font-size: 1.2rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+              <span>🎯</span>
+              <span>Today's Study Tasks</span>
+            </h2>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">Allocated daily study load: <%= plan ? plan.dailyAvailableHours : 3 %> Hours</span>
+          </div>
+
+          <span class="core-badge" style="background: var(--accent-light); color: var(--accent-primary);">
+            <%= views.dailyTasks ? views.dailyTasks.length : 0 %> Tasks Scheduled
+          </span>
+        </div>
+
+        <div id="dailyTasksContainer" style="display: flex; flex-direction: column; gap: 12px;">
+          <% if (!views.dailyTasks || views.dailyTasks.length === 0) { %>
+            <div style="text-align: center; padding: 36px 16px; color: var(--text-muted); background: var(--bg-primary); border-radius: var(--radius-sm);">
+              <p style="font-size: 0.95rem; margin-bottom: 8px;">No study tasks scheduled for today.</p>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openGeneratePlanModal()">⚡ Generate Study Schedule</button>
+            </div>
+          <% } else { %>
+            <% views.dailyTasks.forEach(task => { %>
+              <div class="task-card <%= task.isCompleted ? 'completed-task' : '' %>" id="task-card-<%= task._id %>" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); border-left: 5px solid <%= task.pyqImportance === 'High' ? '#ef4444' : 'var(--accent-primary)' %>;">
+                <div style="display: flex; align-items: center; gap: 14px; flex: 1;">
+                  <input type="checkbox" class="task-checkbox" data-id="<%= task._id %>" <%= task.isCompleted ? 'checked' : '' %> onchange="toggleTaskCompletion('<%= task._id %>')" style="width: 20px; height: 20px; cursor: pointer;">
+                  
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px;">
+                      <span class="unit-number-badge" style="font-size: 0.72rem;"><%= task.subjectName || task.subjectId %></span>
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">⏱️ <%= task.allocatedHours %>h Allocated</span>
+                      <% if (task.pyqImportance === 'High') { %>
+                        <span class="core-badge" style="background: #ef444420; color: #dc2626; font-size: 0.68rem;">🔥 High PYQ Weightage</span>
+                      <% } %>
+                    </div>
+                    <h4 style="margin: 0; font-size: 1rem; font-weight: 700; <%= task.isCompleted ? 'text-decoration: line-through; opacity: 0.75;' : '' %>" id="task-title-<%= task._id %>">
+                      <%= task.topicTitle %>
+                    </h4>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                  <a href="/transcription?category=<%= task.subjectId %>&topic=<%= encodeURIComponent(task.topicTitle) %>" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+                    🎙️ Transcribe Lecture
+                  </a>
+                  <a href="/assistant?topic=<%= encodeURIComponent(task.topicTitle) %>" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+                    🤖 Ask AI
+                  </a>
+                  <button type="button" class="btn btn-danger-outline btn-sm cancel-task-btn" onclick="cancelTask('<%= task._id %>')" title="Cancel scheduled task" style="font-size: 0.78rem; padding: 4px 8px;">
+                    ✕ Cancel
+                  </button>
+                </div>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: Weekly Timetable View -->
+    <div id="scheduleWeeklyView" class="hidden">
+      <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+          <span>📅</span>
+          <span>Weekly Preparation Timetable</span>
+        </h2>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+          <% (views.weeklySchedule || []).forEach(dayGroup => { %>
+            <div style="background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-color);">
+                <strong style="font-size: 0.95rem;"><%= dayGroup.dayName %></strong>
+                <span style="font-size: 0.78rem; color: var(--text-muted);"><%= dayGroup.date %></span>
+              </div>
+
+              <% if (dayGroup.tasks.length === 0) { %>
+                <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin: 16px 0;">No scheduled tasks</p>
+              <% } else { %>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <% dayGroup.tasks.forEach(task => { %>
+                    <div style="padding: 8px 10px; background: var(--bg-surface); border-radius: 4px; border-left: 3px solid <%= task.isCompleted ? '#10b981' : 'var(--accent-primary)' %>; font-size: 0.84rem;">
+                      <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 2px;">
+                        <span><%= task.subjectName %></span>
+                        <span><%= task.allocatedHours %>h</span>
+                      </div>
+                      <div style="font-weight: 600; <%= task.isCompleted ? 'text-decoration: line-through; opacity: 0.7;' : '' %>"><%= task.topicTitle %></div>
+                    </div>
+                  <% }) %>
+                </div>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: Monthly Preparation Calendar View -->
+    <div id="scheduleMonthlyView" class="hidden">
+      <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 16px;">🗓️ Monthly Exam Preparation Breakdown</h2>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px; max-height: 520px; overflow-y: auto;">
+          <% 
+            const monthDates = Object.keys(views.monthlyMap || {}).sort();
+            if (monthDates.length === 0) { 
+          %>
+            <p style="text-align: center; color: var(--text-muted); padding: 30px 0;">No monthly tasks generated.</p>
+          <% } else { 
+            monthDates.forEach(dateKey => {
+              const dateTasks = views.monthlyMap[dateKey];
+          %>
+            <div style="padding: 12px 16px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; color: var(--accent-primary);">
+                📅 <%= dateKey %> (<%= dateTasks.length %> Tasks)
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px;">
+                <% dateTasks.forEach(t => { %>
+                  <div style="padding: 6px 10px; background: var(--bg-surface); border-radius: 4px; font-size: 0.82rem;">
+                    <strong><%= t.subjectName %></strong>: <%= t.topicTitle %>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          <% })} %>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: Explore & Learn Roadmaps Plan (Separate from University Exam) -->
+    <div id="scheduleExploreView" class="hidden">
+      <div class="card" style="margin-bottom: 24px; border-left: 5px solid #06b6d4;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 16px;">
+          <div>
+            <span class="core-badge" style="background: #06b6d420; color: #0891b2;">Career Skill Track Planner</span>
+            <h2 style="font-size: 1.2rem; font-weight: 800; margin: 4px 0 0;">
+              <%= expPlan ? expPlan.title : 'DevOps & AI/ML Skill Roadmaps Plan' %>
+            </h2>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin: 2px 0 0;">
+              Target Completion: <strong><%= expPlan ? expPlan.targetDate : 'Set target' %></strong> • <%= expPlan ? expPlan.dailyAvailableHours : 2 %>h/day
+            </p>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="openExplorePlanModal()">
+              <span>⚡ Create / Switch Roadmap Plan</span>
+            </button>
+            <% if (expPlan) { %>
+              <button type="button" class="btn btn-danger-outline btn-sm cancel-plan-btn" onclick="cancelStudyPlan('<%= expPlan._id %>')" title="Cancel this active roadmap plan">
+                ✕ Cancel Plan
+              </button>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Explore Tasks List -->
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <% if (!expViews.dailyTasks || expViews.dailyTasks.length === 0) { %>
+            <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.88rem;">
+              No active roadmap plan. Choose a career track (DevOps, GenAI, Cybersecurity, DSA) to schedule milestones.
+            </div>
+          <% } else { %>
+            <% expViews.dailyTasks.forEach(t => { %>
+              <div class="task-card" id="task-card-<%= t._id %>" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <input type="checkbox" <%= t.isCompleted ? 'checked' : '' %> onchange="toggleTaskCompletion('<%= t._id %>')">
+                  <div>
+                    <span class="unit-number-badge" style="font-size: 0.7rem;"><%= t.subjectName %></span>
+                    <strong style="margin-left: 6px; font-size: 0.9rem;"><%= t.topicTitle %></strong>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <a href="/transcription?category=<%= t.subjectId %>&topic=<%= encodeURIComponent(t.topicTitle) %>&type=explore" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+                    🎙️ Transcribe Lecture
+                  </a>
+                  <button type="button" class="btn btn-danger-outline btn-sm" onclick="cancelTask('<%= t._id %>')" title="Cancel scheduled task" style="font-size: 0.75rem; padding: 4px 8px;">
+                    ✕ Cancel
+                  </button>
+                </div>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legacy Daily Goals & Weekly Class Timetable (Preserved for compatibility) -->
+    <div style="display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 24px;">
+      
+      <!-- Left Column: Daily Goals & Spaced Revision Planner -->
+      <div style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Daily Goals Card -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div>
+              <h2 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
+                <span>🎯</span>
+                <span>Custom Daily Study Goals</span>
+              </h2>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">
+                <%= planner.goalStats.completed %> of <%= planner.goalStats.total %> goals achieved (<%= planner.goalStats.percentage %>%)
+              </span>
+            </div>
+            <span style="font-weight: 700; color: var(--accent-primary); font-size: 0.95rem;">
+              <%= planner.goalStats.percentage %>%
+            </span>
+          </div>
+
+          <div class="progress-container" style="height: 6px; margin-bottom: 16px;">
+            <div class="progress-bar-fill" style="width: <%= planner.goalStats.percentage %>%; background: var(--accent-primary);"></div>
+          </div>
+
+          <!-- Add New Goal Form -->
+          <form id="addGoalForm" style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <input type="text" id="goalTextInput" class="form-control" placeholder="Add study goal for today..." required style="flex: 1; font-size: 0.88rem;">
+            <select id="goalSubjectSelect" class="form-control" style="width: 140px; font-size: 0.82rem;">
+              <option value="general">General</option>
+              <% subjects.forEach(sub => { %>
+                <option value="<%= sub.id %>"><%= sub.name %></option>
+              <% }) %>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm" style="white-space: nowrap;">+ Add</button>
+          </form>
+
+          <!-- Goals List -->
+          <div id="goalsListContainer" style="display: flex; flex-direction: column; gap: 10px;">
+            <% (planner.dailyGoals || []).forEach(goal => { %>
+              <div class="goal-item <%= goal.completed ? 'completed' : '' %>" id="goal-item-<%= goal.id %>" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <label style="display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; margin: 0;">
+                  <input type="checkbox" class="goal-toggle-box" data-id="<%= goal.id %>" <%= goal.completed ? 'checked' : '' %> style="width: 17px; height: 17px;">
+                  <span style="font-size: 0.88rem; <%= goal.completed ? 'text-decoration: line-through; opacity: 0.7;' : '' %>" id="goal-text-<%= goal.id %>">
+                    <%= goal.text %>
+                  </span>
+                </label>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="unit-number-badge" style="font-size: 0.7rem;"><%= goal.subjectId %></span>
+                  <button type="button" class="btn btn-sm delete-goal-btn" data-id="<%= goal.id %>" style="padding: 2px 6px; background: transparent; border: none; color: var(--text-muted); cursor: pointer;" title="Delete Goal">✕</button>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+
+        <!-- Spaced Repetition Revision Planner Card -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+              <h2 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
+                <span>🔄</span>
+                <span>Spaced Revision Planner</span>
+              </h2>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Cycle 1 (Day +3) • Cycle 2 (Day +7)</span>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <% (planner.revisionSchedule || []).forEach(item => { %>
+              <div style="padding: 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong style="font-size: 0.92rem;"><%= item.topicName %></strong>
+                  <span class="unit-number-badge" style="font-size: 0.7rem;"><%= item.subjectId %></span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; padding: 6px 8px; background: var(--bg-surface); border-radius: 4px; border: 1px solid var(--border-color);">
+                    <input type="checkbox" class="revision-cycle-box" data-id="<%= item.id %>" data-cycle="1" <%= item.cycle1Done ? 'checked' : '' %>>
+                    <span><strong>Rev 1</strong> (<%= item.cycle1Date %>)</span>
+                  </label>
+
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; padding: 6px 8px; background: var(--bg-surface); border-radius: 4px; border: 1px solid var(--border-color);">
+                    <input type="checkbox" class="revision-cycle-box" data-id="<%= item.id %>" data-cycle="2" <%= item.cycle2Done ? 'checked' : '' %>>
+                    <span><strong>Rev 2</strong> (<%= item.cycle2Date %>)</span>
+                  </label>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Weekly Timetable Schedule -->
+      <div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">📅 Weekly Study Timetable</h2>
+              <p style="font-size: 0.82rem; color: var(--text-muted); margin: 2px 0 0;">Schedule slots across all 7 days of the week.</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openTimetableModal()">+ Add Slot</button>
+          </div>
+
+          <div style="display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 6px;">
+            <% const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']; %>
+            <% days.forEach((d, idx) => { %>
+              <button type="button" class="btn btn-sm day-tab-btn <%= idx === 0 ? 'active btn-primary' : 'btn-secondary' %>" data-day="<%= d %>" style="text-transform: capitalize; padding: 4px 12px; font-size: 0.82rem;">
+                <%= d.slice(0, 3) %>
+              </button>
+            <% }) %>
+          </div>
+
+          <% days.forEach((d, idx) => { 
+            const slots = (planner.weeklyTimetable && planner.weeklyTimetable[d]) ? planner.weeklyTimetable[d] : [];
+          %>
+            <div id="day-panel-<%= d %>" class="day-slots-panel" style="<%= idx === 0 ? 'display: flex;' : 'display: none;' %> flex-direction: column; gap: 12px;">
+              <% if (slots.length > 0) { %>
+                <% slots.forEach(slot => { %>
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-primary); border: 1px solid var(--border-color);">
+                    <div>
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-size: 0.78rem; font-weight: 700; color: var(--accent-primary);">⏰ <%= slot.time %></span>
+                        <span class="unit-number-badge" style="font-size: 0.7rem;"><%= slot.subjectId %></span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted);"><%= slot.type %></span>
+                      </div>
+                      <strong style="font-size: 0.95rem;"><%= slot.topic %></strong>
+                    </div>
+
+                    <button type="button" class="btn btn-sm delete-slot-btn" data-day="<%= d %>" data-id="<%= slot.id %>" style="color: var(--text-muted); background: transparent; border: none; font-size: 1rem; cursor: pointer;">
+                      🗑️
+                    </button>
+                  </div>
+                <% }) %>
+              <% } else { %>
+                <div style="text-align: center; padding: 24px 16px; color: var(--text-muted);">
+                  <p>No study slots scheduled for <%= d.toUpperCase() %>.</p>
+                </div>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Modal 1: AI Study Plan Generator Modal -->
+<div id="generatePlanModal" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+  <div class="card" style="width: 100%; max-width: 540px; background: var(--bg-surface); border-radius: var(--radius-md); padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800;">⚡ Generate Personalized AI Study Plan</h3>
+      <button type="button" onclick="closeGeneratePlanModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer;">✕</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Semester *</label>
+      <select id="planSemesterSelect" class="form-control">
+        <% for(let s=1; s<=8; s++) { %>
+          <option value="<%= s %>" <%= s===3 ? 'selected' : '' %>>Semester <%= s %></option>
+        <% } %>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Target Examination Date *</label>
+      <input type="date" id="planExamDateInput" class="form-control" value="<%= (exam && exam.date) ? exam.date : new Date(Date.now() + 25*24*60*60*1000).toISOString().slice(0,10) %>">
+      <small style="color: var(--text-muted);">Automatically initialized from confirmed university notices.</small>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Daily Available Study Hours: <strong id="hoursDisplay">3 Hours</strong></label>
+      <input type="range" id="planHoursInput" min="1" max="8" step="0.5" value="3" class="form-control" oninput="document.getElementById('hoursDisplay').textContent = this.value + ' Hours'">
+    </div>
+
+    <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+      <button type="button" class="btn btn-secondary" onclick="closeGeneratePlanModal()">Cancel</button>
+      <button type="button" id="confirmGeneratePlanBtn" class="btn btn-primary" onclick="submitGeneratePlan()">
+        <span>🚀 Generate Balanced Timetable</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: Explore & Learn Roadmap Plan Modal -->
+<div id="explorePlanModal" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+  <div class="card" style="width: 100%; max-width: 520px; background: var(--bg-surface); padding: 24px;">
+    <h3 style="margin-top: 0; font-size: 1.2rem;">🧭 Plan Career Skill Roadmap</h3>
+    <div class="form-group">
+      <label class="form-label">Select Career Roadmap Track *</label>
+      <select id="expTrackSelect" class="form-control">
+        <% (exploreTracks || []).forEach(tr => { %>
+          <option value="<%= tr.id %>"><%= tr.icon %> <%= tr.title %> (<%= tr.duration %>)</option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Target Completion Date *</label>
+      <input type="date" id="expTargetDateInput" class="form-control" value="<%= new Date(Date.now() + 60*24*60*60*1000).toISOString().slice(0,10) %>">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Daily Available Study Hours</label>
+      <input type="number" id="expHoursInput" class="form-control" value="2" min="1" max="6">
+    </div>
+    <div style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+      <button type="button" class="btn btn-secondary" onclick="closeExplorePlanModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="submitExplorePlan()">🚀 Generate Roadmap Plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 3: Exam Modal (Preserved) -->
+<div id="examModal" class="custom-modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); align-items: center; justify-content: center; z-index: 1000;">
+  <div class="custom-modal-container card" style="max-width: 500px; width: 95%;">
+    <div class="custom-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Edit Semester Examination Target</h3>
+      <button type="button" class="custom-modal-close" onclick="closeExamModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer;">✕</button>
+    </div>
+
+    <form id="editExamForm">
+      <div class="form-group">
+        <label class="form-label">Target Examination Title</label>
+        <input type="text" id="examNameInput" class="form-control" value="<%= exam ? exam.examName : 'End-Semester Exam' %>" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Exam Date</label>
+        <input type="date" id="examDateInput" class="form-control" value="<%= exam ? exam.date : '' %>" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Target Performance Goal</label>
+        <input type="text" id="examTargetInput" class="form-control" value="<%= exam ? exam.targetScore : '85%+' %>">
+      </div>
+
+      <div style="margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeExamModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Target</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal 4: Timetable Modal (Preserved) -->
+<div id="timetableModal" class="custom-modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); align-items: center; justify-content: center; z-index: 1000;">
+  <div class="custom-modal-container card" style="max-width: 500px; width: 95%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h3 style="margin: 0;">Add Timetable Study Slot</h3>
+      <button type="button" onclick="closeTimetableModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer;">✕</button>
+    </div>
+    <form id="addSlotForm">
+      <div class="form-group">
+        <label class="form-label">Day of Week</label>
+        <select id="slotDaySelect" class="form-control" required>
+          <option value="monday">Monday</option>
+          <option value="tuesday">Tuesday</option>
+          <option value="wednesday">Wednesday</option>
+          <option value="thursday">Thursday</option>
+          <option value="friday">Friday</option>
+          <option value="saturday">Saturday</option>
+          <option value="sunday">Sunday</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time Window</label>
+        <input type="text" id="slotTimeInput" class="form-control" placeholder="09:00 - 11:00 AM" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subject</label>
+        <select id="slotSubjectSelect" class="form-control" required>
+          <% subjects.forEach(sub => { %>
+            <option value="<%= sub.id %>"><%= sub.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Topic / Focus</label>
+        <input type="text" id="slotTopicInput" class="form-control" placeholder="e.g. Dynamic Programming" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Activity Type</label>
+        <select id="slotTypeSelect" class="form-control">
+          <option value="Theory + Notes">Theory + Notes</option>
+          <option value="Coding Practice">Coding Practice</option>
+          <option value="PYQ Solving">PYQ Solving</option>
+          <option value="Revision">Revision</option>
+        </select>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+        <button type="button" class="btn btn-secondary" onclick="closeTimetableModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Slot</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function switchScheduleView(view) {
+    document.getElementById('scheduleDailyView').classList.toggle('hidden', view !== 'daily');
+    document.getElementById('scheduleWeeklyView').classList.toggle('hidden', view !== 'weekly');
+    document.getElementById('scheduleMonthlyView').classList.toggle('hidden', view !== 'monthly');
+    document.getElementById('scheduleExploreView').classList.toggle('hidden', view !== 'explore');
+
+    document.getElementById('viewDailyBtn').classList.toggle('active', view === 'daily');
+    document.getElementById('viewWeeklyBtn').classList.toggle('active', view === 'weekly');
+    document.getElementById('viewMonthlyBtn').classList.toggle('active', view === 'monthly');
+    document.getElementById('viewExploreBtn').classList.toggle('active', view === 'explore');
+  }
+
+  function openGeneratePlanModal() { document.getElementById('generatePlanModal').classList.remove('hidden'); }
+  function closeGeneratePlanModal() { document.getElementById('generatePlanModal').classList.add('hidden'); }
+
+  function openExplorePlanModal() { document.getElementById('explorePlanModal').classList.remove('hidden'); }
+  function closeExplorePlanModal() { document.getElementById('explorePlanModal').classList.add('hidden'); }
+
+  function openExamModal() { document.getElementById('examModal').style.display = 'flex'; }
+  function closeExamModal() { document.getElementById('examModal').style.display = 'none'; }
+
+  function openTimetableModal() { document.getElementById('timetableModal').style.display = 'flex'; }
+  function closeTimetableModal() { document.getElementById('timetableModal').style.display = 'none'; }
+
+  async function submitGeneratePlan() {
+    const semester = document.getElementById('planSemesterSelect').value;
+    const targetExamDate = document.getElementById('planExamDateInput').value;
+    const dailyAvailableHours = document.getElementById('planHoursInput').value;
+
+    const btn = document.getElementById('confirmGeneratePlanBtn');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generating AI Preparation Plan...';
+
+    try {
+      const res = await fetch('/planner/api/plan/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ semester, targetExamDate, dailyAvailableHours })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Study Plan generated! Scheduled ${data.totalTasksScheduled} tasks over ${data.preparationDays} preparation days.`);
+        window.location.reload();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🚀 Generate Balanced Timetable';
+    }
+  }
+
+  async function submitExplorePlan() {
+    const trackId = document.getElementById('expTrackSelect').value;
+    const targetDate = document.getElementById('expTargetDateInput').value;
+    const dailyAvailableHours = document.getElementById('expHoursInput').value;
+
+    try {
+      const res = await fetch('/planner/api/plan/explore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackId, targetDate, dailyAvailableHours })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ Explore roadmap plan generated!');
+        window.location.reload();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    }
+  }
+
+  async function toggleTaskCompletion(taskId) {
+    try {
+      const res = await fetch('/planner/api/task/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const card = document.getElementById(`task-card-${taskId}`);
+        const title = document.getElementById(`task-title-${taskId}`);
+        if (card && title) {
+          if (data.task.isCompleted) {
+            card.classList.add('completed-task');
+            title.style.textDecoration = 'line-through';
+            title.style.opacity = '0.75';
+          } else {
+            card.classList.remove('completed-task');
+            title.style.textDecoration = 'none';
+            title.style.opacity = '1';
+          }
+        }
+      }
+    } catch (e) {
+      alert(`Failed to update task: ${e.message}`);
+    }
+  }
+
+  async function rescheduleTasks() {
+    <% const pId = plan ? plan._id : ''; %>
+    const planId = '<%= pId %>';
+    if (!planId) return alert('No active plan found to reschedule.');
+
+    try {
+      const res = await fetch('/planner/api/task/reschedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ ${data.message}`);
+        window.location.reload();
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    }
+  }
+
+  async function cancelStudyPlan(planId) {
+    if (!planId) return;
+    const confirmed = await window.showConfirmDialog({
+      title: 'Cancel Study Plan',
+      message: 'Are you sure you want to cancel this plan? It will no longer appear as an active plan in your study calendar.',
+      confirmText: 'Yes, Cancel Plan',
+      icon: '⚠️'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch('/planner/api/plan/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.showToast(data.message || 'Plan cancelled successfully.', 'success');
+        setTimeout(() => window.location.reload(), 600);
+      } else {
+        window.showToast(`Failed to cancel plan: ${data.error}`, 'error');
+      }
+    } catch (e) {
+      window.showToast(`Error: ${e.message}`, 'error');
+    }
+  }
+
+  async function cancelTask(taskId) {
+    if (!taskId) return;
+    const confirmed = await window.showConfirmDialog({
+      title: 'Cancel Scheduled Task',
+      message: 'Are you sure you want to cancel this study task? It will be removed from your schedule.',
+      confirmText: 'Yes, Cancel Task',
+      icon: '🗑️'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch('/planner/api/task/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.showToast('Study task cancelled successfully.', 'success');
+        const card = document.getElementById(`task-card-${taskId}`);
+        if (card) {
+          card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.95)';
+          setTimeout(() => {
+            if (card.parentNode) card.parentNode.removeChild(card);
+            window.location.reload();
+          }, 350);
+        } else {
+          window.location.reload();
+        }
+      } else {
+        window.showToast(`Failed to cancel task: ${data.error}`, 'error');
+      }
+    } catch (e) {
+      window.showToast(`Error: ${e.message}`, 'error');
+    }
+  }
+
+  // Preserve Daily Goals & Timetable handlers
+  document.getElementById('addGoalForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = document.getElementById('goalTextInput').value.trim();
+    const subjectId = document.getElementById('goalSubjectSelect').value;
+
+    const res = await fetch('/planner/api/goal/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, subjectId })
+    });
+    const data = await res.json();
+    if (data.success) window.location.reload();
+  });
+
+  document.querySelectorAll('.goal-toggle-box').forEach(box => {
+    box.addEventListener('change', async (e) => {
+      const goalId = e.target.dataset.id;
+      await fetch('/planner/api/goal/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goalId })
+      });
+      window.location.reload();
+    });
+  });
+
+  document.querySelectorAll('.delete-goal-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const goalId = e.target.dataset.id;
+      const confirmed = await window.showConfirmDialog({
+        title: 'Delete Goal',
+        message: 'Are you sure you want to delete this daily goal?',
+        confirmText: 'Delete Goal'
+      });
+      if (!confirmed) return;
+
+      btn.disabled = true;
+      try {
+        const res = await fetch('/planner/api/goal/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goalId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.showToast('Goal removed.', 'success');
+          setTimeout(() => window.location.reload(), 400);
+        } else {
+          window.showToast(`Error: ${data.error}`, 'error');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        window.showToast(`Error: ${err.message}`, 'error');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.getElementById('editExamForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const examName = document.getElementById('examNameInput').value.trim();
+    const date = document.getElementById('examDateInput').value;
+    const targetScore = document.getElementById('examTargetInput').value.trim();
+
+    const res = await fetch('/planner/api/exam/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ examName, date, targetScore })
+    });
+    const data = await res.json();
+    if (data.success) window.location.reload();
+  });
+
+  document.getElementById('addSlotForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const day = document.getElementById('slotDaySelect').value;
+    const time = document.getElementById('slotTimeInput').value.trim();
+    const subjectId = document.getElementById('slotSubjectSelect').value;
+    const topic = document.getElementById('slotTopicInput').value.trim();
+    const type = document.getElementById('slotTypeSelect').value;
+
+    const res = await fetch('/planner/api/timetable/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ day, time, subjectId, topic, type })
+    });
+    const data = await res.json();
+    if (data.success) window.location.reload();
+  });
+
+  document.querySelectorAll('.day-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const day = btn.dataset.day;
+      document.querySelectorAll('.day-tab-btn').forEach(b => {
+        b.classList.remove('active', 'btn-primary');
+        b.classList.add('btn-secondary');
+      });
+      btn.classList.add('active', 'btn-primary');
+      btn.classList.remove('btn-secondary');
+
+      document.querySelectorAll('.day-slots-panel').forEach(p => p.style.display = 'none');
+      const panel = document.getElementById(`day-panel-${day}`);
+      if (panel) panel.style.display = 'flex';
+    });
+  });
+
+  document.querySelectorAll('.delete-slot-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const day = btn.dataset.day;
+      const slotId = btn.dataset.id;
+      const confirmed = await window.showConfirmDialog({
+        title: 'Delete Timetable Slot',
+        message: 'Are you sure you want to delete this study slot?',
+        confirmText: 'Delete Slot'
+      });
+      if (!confirmed) return;
+
+      btn.disabled = true;
+      try {
+        const res = await fetch('/planner/api/timetable/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ day, slotId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          window.showToast('Slot deleted.', 'success');
+          setTimeout(() => window.location.reload(), 400);
+        } else {
+          window.showToast(`Error: ${data.error}`, 'error');
+          btn.disabled = false;
+        }
+      } catch (err) {
+        window.showToast(`Error: ${err.message}`, 'error');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // Modal backdrop dismiss & ESC key
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeGeneratePlanModal();
+      closeExplorePlanModal();
+      closeExamModal();
+      closeTimetableModal();
+    }
+  });
+
+  ['generatePlanModal', 'explorePlanModal', 'examModal', 'timetableModal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('click', (e) => {
+        if (e.target === el) {
+          if (id === 'generatePlanModal') closeGeneratePlanModal();
+          else if (id === 'explorePlanModal') closeExplorePlanModal();
+          else if (id === 'examModal') closeExamModal();
+          else if (id === 'timetableModal') closeTimetableModal();
+        }
+      });
+    }
+  });
+</script>
+
+<%- include('../partials/footer') %>

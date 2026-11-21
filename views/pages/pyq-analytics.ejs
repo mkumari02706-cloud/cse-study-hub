@@ -1,0 +1,296 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span class="unit-number-badge"><%= subject.code %> • Semester <%= subject.semester || 3 %></span>
+          <span class="core-badge" style="background: <%= subject.color %>20; color: <%= subject.color %>;"><%= subject.badge %></span>
+        </div>
+        <h1 class="page-title"><%= subject.name %> - PYQ Frequency & Importance Analyzer</h1>
+        <p class="page-subtitle">Evidence-based analysis of past examination papers, recurring questions, and high-probability topics.</p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="/pyqs?subject=<%= subject.id %>" class="btn btn-secondary">
+          <span>📑</span>
+          <span>View Uploaded Papers</span>
+        </a>
+        <a href="/subject/<%= subject.id %>" class="btn btn-secondary">
+          <span>📚</span>
+          <span>Subject Syllabus</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick Analytics Stats Row -->
+    <div class="metrics-row" style="margin-bottom: 24px;">
+      <div class="metric-card">
+        <div class="metric-icon purple">📑</div>
+        <div class="metric-data">
+          <h4><%= analytics.totalPapers %></h4>
+          <p>Exam Papers Analyzed</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon blue">❓</div>
+        <div class="metric-data">
+          <h4><%= analytics.totalQuestions %></h4>
+          <p>Total Questions Mapped</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon amber">🔁</div>
+        <div class="metric-data">
+          <h4><%= analytics.repeatedQuestions.length %></h4>
+          <p>Repeated Question Patterns</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon emerald">💯</div>
+        <div class="metric-data">
+          <h4><%= analytics.totalMarks %></h4>
+          <p>Total Marks Evaluated</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: Frequently Repeated Questions -->
+    <div class="card" style="margin-bottom: 28px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span>🔁</span>
+            <span>Repeated & High-Probability Questions (<%= analytics.repeatedQuestions.length %>)</span>
+          </h2>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">
+            Questions detected across multiple university exam sessions with high probability of reappearing.
+          </p>
+        </div>
+      </div>
+
+      <% if (analytics.repeatedQuestions && analytics.repeatedQuestions.length > 0) { %>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <% analytics.repeatedQuestions.forEach((item, idx) => { %>
+            <div class="card" style="padding: 16px; background: var(--bg-primary); border-left: 4px solid var(--accent-primary);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span class="core-badge" style="background: #ef444420; color: #dc2626; border: 1px solid #ef444440; font-weight: 700;">
+                    🔥 Repeated <%= item.appearances %>x
+                  </span>
+                  <span class="unit-number-badge" style="font-size: 0.75rem;"><%= item.topic %></span>
+                  <span style="font-size: 0.82rem; color: var(--text-muted);">
+                    Years: <strong><%= item.years.join(', ') %></strong>
+                  </span>
+                </div>
+                <span style="font-weight: 700; font-size: 0.88rem; color: var(--accent-primary);">
+                  Up to <%= item.maxMarks %> Marks (<%= item.totalMarks %> Total)
+                </span>
+              </div>
+
+              <p style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">
+                "<%= item.representativeQuestion %>"
+              </p>
+
+              <!-- Expandable Question Instances -->
+              <details style="font-size: 0.82rem; color: var(--text-secondary);">
+                <summary style="cursor: pointer; font-weight: 600; color: var(--accent-primary);">
+                  View all <%= item.instances.length %> occurrences in past papers
+                </summary>
+                <div style="margin-top: 8px; padding-left: 12px; border-left: 2px solid var(--border-color); display: flex; flex-direction: column; gap: 6px;">
+                  <% item.instances.forEach(inst => { %>
+                    <div>
+                      <strong><%= inst.year %> (<%= inst.examType || 'Exam' %>) [<%= inst.marks %>M]:</strong> <%= inst.question %>
+                    </div>
+                  <% }) %>
+                </div>
+              </details>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
+          <p>No repeated questions detected yet. Upload 2 or more question papers for this subject to unlock repeat detection!</p>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Section 2: Evidence-Based Importance Ranking -->
+    <div class="card" style="margin-bottom: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+        <span>🎯</span>
+        <span>Evidence-Based Topic Importance Ranking</span>
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+        Every syllabus topic ranked by real examination weightage, question count, and repetition history.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+        <!-- HIGH IMPORTANCE -->
+        <div class="card" style="background: var(--bg-primary); border-top: 4px solid #ef4444;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: #dc2626; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <span>🔥 High Yield / Must Prepare</span>
+            <span class="badge" style="background: #ef444420; color: #dc2626;">
+              <%= analytics.importanceRanking.filter(t => t.level === 'HIGH').length %> Topics
+            </span>
+          </h3>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <% 
+              const highTopics = analytics.importanceRanking.filter(t => t.level === 'HIGH');
+              if (highTopics.length > 0) {
+                highTopics.forEach(t => { 
+            %>
+              <div style="padding: 10px; background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.9rem;"><%= t.topic %></strong>
+                  <span class="unit-number-badge" style="font-size: 0.72rem;">U<%= t.unitNumber %></span>
+                </div>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+                  <%= t.evidence %>
+                </p>
+              </div>
+            <% 
+                });
+              } else { 
+            %>
+              <p style="font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 12px;">No high-yield topics identified yet.</p>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- MEDIUM IMPORTANCE -->
+        <div class="card" style="background: var(--bg-primary); border-top: 4px solid #f59e0b;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: #d97706; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <span>⚡ Medium Weightage</span>
+            <span class="badge" style="background: #f59e0b20; color: #d97706;">
+              <%= analytics.importanceRanking.filter(t => t.level === 'MEDIUM').length %> Topics
+            </span>
+          </h3>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <% 
+              const medTopics = analytics.importanceRanking.filter(t => t.level === 'MEDIUM').slice(0, 8);
+              if (medTopics.length > 0) {
+                medTopics.forEach(t => { 
+            %>
+              <div style="padding: 10px; background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.9rem;"><%= t.topic %></strong>
+                  <span class="unit-number-badge" style="font-size: 0.72rem;">U<%= t.unitNumber %></span>
+                </div>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+                  <%= t.evidence %>
+                </p>
+              </div>
+            <% 
+                });
+              } else { 
+            %>
+              <p style="font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 12px;">Upload more papers to classify medium topics.</p>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- MARKS DISTRIBUTION & SUMMARY -->
+        <div class="card" style="background: var(--bg-primary); border-top: 4px solid #3b82f6;">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: #2563eb; margin-bottom: 12px;">
+            <span>📊 Marks Distribution</span>
+          </h3>
+
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                <span>Short Questions (1 - 3 Marks)</span>
+                <strong><%= analytics.marksDistribution.short %> Questions</strong>
+              </div>
+              <div class="progress-container" style="height: 8px;">
+                <div class="progress-bar-fill" style="width: <%= analytics.totalQuestions ? (analytics.marksDistribution.short / analytics.totalQuestions * 100) : 0 %>%; background: #3b82f6;"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                <span>Medium Questions (4 - 7 Marks)</span>
+                <strong><%= analytics.marksDistribution.medium %> Questions</strong>
+              </div>
+              <div class="progress-container" style="height: 8px;">
+                <div class="progress-bar-fill" style="width: <%= analytics.totalQuestions ? (analytics.marksDistribution.medium / analytics.totalQuestions * 100) : 0 %>%; background: #10b981;"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                <span>Long / Numerical / Code (8+ Marks)</span>
+                <strong><%= analytics.marksDistribution.long %> Questions</strong>
+              </div>
+              <div class="progress-container" style="height: 8px;">
+                <div class="progress-bar-fill" style="width: <%= analytics.totalQuestions ? (analytics.marksDistribution.long / analytics.totalQuestions * 100) : 0 %>%; background: #8b5cf6;"></div>
+              </div>
+            </div>
+
+            <div style="margin-top: 10px; padding: 12px; background: var(--bg-surface); border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-secondary);">
+              💡 <strong>Strategy:</strong> In <%= subject.name %>, university questions heavily weight topics with 8+ mark derivations and implementations.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Unit-Wise Important Topics -->
+    <div class="card" style="margin-bottom: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px;">
+        📚 Unit-Wise Frequency & Important Questions Breakdown
+      </h2>
+
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <% Object.values(analytics.unitWiseImportance).forEach(u => { %>
+          <div class="unit-card">
+            <div class="unit-card-header">
+              <div class="unit-title-group">
+                <span class="unit-number-badge">Unit <%= u.unitNumber %></span>
+                <strong><%= u.unitTitle %></strong>
+              </div>
+              <span style="font-size: 0.82rem; color: var(--text-muted);">
+                <%= u.topics.filter(t => t.appearances > 0).length %> of <%= u.topics.length %> Topics Asked in PYQs
+              </span>
+            </div>
+
+            <div class="unit-card-body">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px;">
+                <% u.topics.forEach(t => { %>
+                  <div style="padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="overflow: hidden; padding-right: 8px;">
+                      <div style="font-weight: 600; font-size: 0.88rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                        <%= t.topic %>
+                      </div>
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">
+                        <%= t.appearances > 0 ? `${t.appearances} appearances • ${t.totalMarks} Marks` : 'Not in past papers' %>
+                      </span>
+                    </div>
+
+                    <div>
+                      <% if (t.level === 'HIGH') { %>
+                        <span class="core-badge" style="background: #ef444420; color: #dc2626; font-size: 0.7rem;">High Yield</span>
+                      <% } else if (t.level === 'MEDIUM') { %>
+                        <span class="core-badge" style="background: #f59e0b20; color: #d97706; font-size: 0.7rem;">Medium</span>
+                      <% } else { %>
+                        <span class="core-badge" style="background: var(--bg-surface); color: var(--text-muted); font-size: 0.7rem;">Low/Normal</span>
+                      <% } %>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

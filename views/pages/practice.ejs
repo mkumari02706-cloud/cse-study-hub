@@ -1,0 +1,164 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <span style="font-size: 1.5rem;">📝</span>
+          <h1 class="page-title" style="margin: 0;">Interactive Practice Center</h1>
+        </div>
+        <p class="page-subtitle">Test conceptual recall with topic-wise MCQs, active recall flashcards, authentic PYQ practice, and mock exams.</p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="#weakSection" class="btn btn-secondary">
+          <span>⚠️</span>
+          <span>Weak-Topic Analysis (<%= stats.weakTopics.length %>)</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Practice Metrics Row -->
+    <div class="metrics-row" style="margin-bottom: 28px;">
+      <div class="metric-card">
+        <div class="metric-icon purple">🎯</div>
+        <div class="metric-data">
+          <h4><%= stats.totalAttempts %></h4>
+          <p>Total Practice Sessions</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon emerald">📈</div>
+        <div class="metric-data">
+          <h4><%= stats.avgScore %>%</h4>
+          <p>Average Accuracy</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon amber">⚠️</div>
+        <div class="metric-data">
+          <h4><%= stats.weakTopics.length %></h4>
+          <p>Topics Requiring Review</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon blue">⚡</div>
+        <div class="metric-data">
+          <h4><%= subjects.length %></h4>
+          <p>Subjects Ready to Practice</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weak Topic Analysis Alert Card -->
+    <% if (stats.weakTopics && stats.weakTopics.length > 0) { %>
+      <div id="weakSection" class="card" style="margin-bottom: 28px; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: #dc2626; display: flex; align-items: center; gap: 8px; margin: 0;">
+            <span>⚠️</span>
+            <span>Weak-Topic Diagnostic Alert (<%= stats.weakTopics.length %> Detected)</span>
+          </h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Identified from your recent quiz attempts with accuracy &lt; 70%</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+          <% stats.weakTopics.forEach(item => { %>
+            <div style="padding: 12px 14px; background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span class="unit-number-badge" style="font-size: 0.72rem;"><%= item.subjectName %></span>
+                  <span style="font-weight: 700; color: #dc2626; font-size: 0.85rem;"><%= item.averageAccuracy %>% Accuracy</span>
+                </div>
+                <strong style="font-size: 0.92rem; display: block; margin-bottom: 4px;"><%= item.topicName %></strong>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0;"><%= item.recommendation %></p>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <a href="/practice/quiz?subject=<%= item.subjectId %>&topic=<%= encodeURIComponent(item.topicName) %>" class="btn btn-primary btn-sm" style="flex: 1; font-size: 0.75rem;">
+                  Re-test Quiz
+                </a>
+                <a href="/practice/flashcards?subject=<%= item.subjectId %>&topic=<%= encodeURIComponent(item.topicName) %>" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+                  Cards
+                </a>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Mode 1: Quick Practice Launch by Subject -->
+    <div class="card" style="margin-bottom: 32px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px;">
+        🚀 Select a Subject to Practice
+      </h2>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px;">
+        <% subjects.forEach(sub => { %>
+          <div class="card" style="padding: 18px; background: var(--bg-primary); border-top: 4px solid <%= sub.color %>; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span class="unit-number-badge"><%= sub.code %></span>
+                <span class="core-badge" style="background: <%= sub.color %>20; color: <%= sub.color %>;"><%= sub.badge %></span>
+              </div>
+              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 4px;"><%= sub.name %></h3>
+              <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 14px;">
+                <%= (sub.units || []).length %> Units • <%= (sub.units || []).reduce((s, u) => s + (u.topics ? u.topics.length : 0), 0) %> Topics
+              </p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; gap: 8px;">
+                <a href="/practice/quiz?subject=<%= sub.id %>" class="btn btn-primary btn-sm" style="flex: 1; justify-content: center;">
+                  <span>🎯</span>
+                  <span>Topic Quiz</span>
+                </a>
+                <a href="/practice/flashcards?subject=<%= sub.id %>" class="btn btn-secondary btn-sm" style="flex: 1; justify-content: center;">
+                  <span>🃏</span>
+                  <span>Flashcards</span>
+                </a>
+              </div>
+              <a href="/practice/mock/<%= sub.id %>" class="btn btn-secondary btn-sm" style="justify-content: center; font-weight: 600; border-color: <%= sub.color %>80;">
+                <span>⏱️</span>
+                <span>Full-Curriculum Mock Exam</span>
+              </a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- Recent Practice History -->
+    <% if (stats.recentAttempts && stats.recentAttempts.length > 0) { %>
+      <div class="card">
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">
+          🕒 Recent Practice History
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <% stats.recentAttempts.forEach(att => { %>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px;">
+              <div>
+                <strong style="font-size: 0.92rem;"><%= att.topicName %></strong>
+                <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">
+                  <%= new Date(att.date).toLocaleDateString() %> • Subject: <%= att.subjectId %>
+                </span>
+              </div>
+              <div>
+                <span style="font-weight: 700; font-size: 1rem; color: <%= att.percentage >= 70 ? '#10b981' : '#ef4444' %>;">
+                  <%= att.score %> / <%= att.total %> (<%= att.percentage %>%)
+                </span>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

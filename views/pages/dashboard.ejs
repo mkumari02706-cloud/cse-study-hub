@@ -1,0 +1,422 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <h1 class="page-title">CSE Study Hub Dashboard</h1>
+        <p class="page-subtitle">Personalized academic workspace with syllabus tracking, PYQ frequency analytics, and AI study tools.</p>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="/syllabus/upload" class="btn btn-primary">
+          <span>📄</span>
+          <span>Upload Syllabus</span>
+        </a>
+        <a href="/assistant" class="btn btn-secondary">
+          <span>🤖</span>
+          <span>AI Assistant</span>
+        </a>
+        <a href="/practice" class="btn btn-secondary">
+          <span>🎯</span>
+          <span>Practice</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Exam Countdown & Daily Goals Top Banner -->
+    <% 
+      const exam = (typeof planner !== 'undefined' && planner.examCountdown && planner.examCountdown[0]) ? planner.examCountdown[0] : null;
+      const goals = (typeof planner !== 'undefined' && planner.dailyGoals) ? planner.dailyGoals : [];
+      const completedGoals = goals.filter(g => g.completed).length;
+    %>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-bottom: 24px;">
+      <!-- Exam Countdown Card -->
+      <div class="card" style="background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%); border-left: 5px solid var(--accent-primary);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="background: var(--bg-surface); padding: 10px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); text-align: center;">
+              <span style="font-size: 1.8rem; font-weight: 800; color: #dc2626; display: block; line-height: 1;">
+                <%= exam ? exam.daysLeft : 30 %>
+              </span>
+              <span style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Days Left</span>
+            </div>
+            <div>
+              <span class="core-badge" style="background: #ef444420; color: #dc2626; font-size: 0.72rem;">Exam Countdown</span>
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 2px 0 0;"><%= exam ? exam.examName : 'University Semester Exam' %></h3>
+              <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0;">Target: <%= exam ? exam.targetScore : '85%+' %> • <%= exam ? exam.subjectName : 'All Subjects' %></p>
+            </div>
+          </div>
+          <a href="/planner" class="btn btn-secondary btn-sm">Planner →</a>
+        </div>
+      </div>
+
+      <!-- Today's Goals Card -->
+      <div class="card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%); border-left: 5px solid #10b981;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span class="core-badge" style="background: #10b98120; color: #047857; font-size: 0.72rem;">Daily Study Goals</span>
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin: 2px 0 0;">
+              <%= completedGoals %> of <%= goals.length %> Goals Completed
+            </h3>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 0;">
+              <%= goals.length > 0 ? goals[0].text.slice(0, 45) + '...' : 'Plan today’s study tasks' %>
+            </p>
+          </div>
+          <a href="/planner" class="btn btn-secondary btn-sm">View Goals →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- University Notices Dashboard Section -->
+    <div class="card" style="margin-bottom: 24px; border-top: 4px solid var(--accent-primary);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 16px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.25rem;">🏛️</span>
+            <h2 style="font-size: 1.15rem; font-weight: 800; margin: 0;">University Notices & Academic Timetables</h2>
+          </div>
+          <p style="font-size: 0.84rem; color: var(--text-secondary); margin: 3px 0 0;">
+            Extracted official university examination circulars, subject timetables, practicals, and academic deadlines.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <a href="/notices" class="btn btn-primary btn-sm">
+            <span>📤 Upload / Add Notice</span>
+          </a>
+          <a href="/notices" class="btn btn-secondary btn-sm">
+            <span>Archive →</span>
+          </a>
+        </div>
+      </div>
+
+      <% if (typeof recentNotices !== 'undefined' && recentNotices && recentNotices.length > 0) { %>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">
+          <% recentNotices.slice(0, 3).forEach(notice => { 
+            const ext = notice.extractedData || {};
+            const timetable = ext.timetable || [];
+          %>
+            <div style="padding: 14px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span class="core-badge" style="background: var(--accent-light); color: var(--accent-primary); font-size: 0.72rem;"><%= notice.noticeType %></span>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);"><%= notice.noticeDate %></span>
+                </div>
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 4px;">
+                  <a href="/notices/<%= notice._id %>" style="color: inherit; text-decoration: none;"><%= notice.title %></a>
+                </h4>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
+                  🏛️ <%= notice.universityName %> (Semester <%= notice.semester %>)
+                </p>
+
+                <% if (timetable.length > 0) { %>
+                  <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+                    📅 <strong><%= timetable.length %> Papers</strong>: <%= timetable[0].subjectName %> (<%= timetable[0].date %>)...
+                  </div>
+                <% } %>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+                <a href="/notices/<%= notice._id %>" style="font-size: 0.78rem; color: var(--accent-primary); font-weight: 600;">View Full Timetable →</a>
+                <a href="/planner" style="font-size: 0.78rem; color: #10b981; font-weight: 600;">Sync Planner ⚡</a>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div style="padding: 16px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); text-align: center;">
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 10px;">
+            No university circulars uploaded yet. Upload your exam timetable or circular (PDF, image, text, or manual) to automatically schedule preparation tasks.
+          </p>
+          <a href="/notices" class="btn btn-primary btn-sm">
+            <span>Upload University Notice</span>
+          </a>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Multi-Semester Navigation Tabs -->
+    <div class="semester-filter-container">
+      <div class="semester-filter-header">
+        <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+          Filter by Semester:
+        </span>
+      </div>
+      <div class="semester-tabs-scroll">
+        <a href="/?semester=all" class="semester-tab <%= (selectedSemester === 'all') ? 'active' : '' %>">
+          <span>All Semesters</span>
+          <span class="tab-badge"><%= allSubjects.length %></span>
+        </a>
+        <% for (let sem = 1; sem <= 8; sem++) { 
+          const semCount = allSubjects.filter(s => (s.semester || 3) === sem).length;
+        %>
+          <a href="/?semester=<%= sem %>" class="semester-tab <%= (String(selectedSemester) === String(sem)) ? 'active' : '' %>">
+            <span>Sem <%= sem %></span>
+            <% if (semCount > 0) { %>
+              <span class="tab-badge active-count"><%= semCount %></span>
+            <% } else { %>
+              <span class="tab-badge">0</span>
+            <% } %>
+          </a>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Quick Metrics Row -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-icon purple">🎓</div>
+        <div class="metric-data">
+          <h4><%= subjects.length %></h4>
+          <p><%= selectedSemester === 'all' ? 'Total Active Subjects' : `Semester ${selectedSemester} Subjects` %></p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon blue">📚</div>
+        <div class="metric-data">
+          <h4><%= stats.grandTotalTopics %></h4>
+          <p>Total Syllabus Topics</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon emerald">✅</div>
+        <div class="metric-data">
+          <h4><%= stats.grandCompletedTopics %></h4>
+          <p>Topics Mastered (<%= stats.overallPercentage %>%)</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon amber">⏳</div>
+        <div class="metric-data">
+          <h4><%= stats.grandTotalTopics - stats.grandCompletedTopics %></h4>
+          <p>Pending for Revision</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Personalized AI Recommendations Row -->
+    <% if (typeof recommendations !== 'undefined' && recommendations.length > 0) { %>
+      <div style="margin-bottom: 28px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <h2 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 6px; margin: 0;">
+            <span>🤖</span>
+            <span>Personalized Study Recommendations</span>
+          </h2>
+          <span style="font-size: 0.78rem; color: var(--text-muted);">Diagnostic insights based on your learning progress</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+          <% recommendations.forEach(rec => { %>
+            <div class="card" style="padding: 16px; background: var(--bg-primary); border-left: 4px solid var(--accent-primary); display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span class="unit-number-badge" style="font-size: 0.72rem;"><%= rec.icon %> <%= rec.badge %></span>
+                </div>
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 4px;"><%= rec.title %></h4>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;"><%= rec.desc %></p>
+              </div>
+              <div>
+                <a href="<%= rec.link %>" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: center; font-size: 0.78rem;">
+                  <%= rec.linkText %> →
+                </a>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- 2 Column Analytics: Important Exam Topics vs Pending Revisions -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; margin-bottom: 32px;">
+      <!-- High Yield Exam Topics -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>🔥</span>
+              <span>Important Exam Topics</span>
+            </h3>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">High frequency across past university question papers</span>
+          </div>
+          <a href="/pyqs" style="font-size: 0.78rem; color: var(--accent-primary); font-weight: 600;">PYQ Analyzer →</a>
+        </div>
+
+        <% if (typeof topImportantTopics !== 'undefined' && topImportantTopics.length > 0) { %>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <% topImportantTopics.forEach(top => { %>
+              <div style="padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <div style="overflow: hidden; padding-right: 8px;">
+                  <strong style="font-size: 0.88rem; display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"><%= top.topic %></strong>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);"><%= top.subjectName %> • Unit <%= top.unitNumber %></span>
+                </div>
+                <div>
+                  <a href="/subject/<%= top.subjectId %>" class="core-badge" style="background: #ef444420; color: #dc2626; text-decoration: none; font-size: 0.72rem; white-space: nowrap;">
+                    🔥 <%= top.appearances %>x Asked
+                  </a>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+            <p>Upload question papers in the PYQ Analyzer to detect high-frequency topics automatically!</p>
+            <a href="/pyqs" class="btn btn-secondary btn-sm">+ Upload Exam Paper</a>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Pending Revisions List -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>⏳</span>
+              <span>Pending for Revision</span>
+            </h3>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Topics next in queue for active recall & notes</span>
+          </div>
+          <a href="/progress" style="font-size: 0.78rem; color: var(--accent-primary); font-weight: 600;">View Tracker →</a>
+        </div>
+
+        <% if (typeof pendingRevisions !== 'undefined' && pendingRevisions.length > 0) { %>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <% pendingRevisions.forEach(rev => { %>
+              <div style="padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <div style="overflow: hidden; padding-right: 8px;">
+                  <strong style="font-size: 0.88rem; display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"><%= rev.topic %></strong>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);"><%= rev.subjectName %></span>
+                </div>
+                <div>
+                  <a href="/subject/<%= rev.subjectId %>" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 3px 8px;">
+                    Revise →
+                  </a>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+            <p>All curriculum topics currently completed! Ready for mock exam practice.</p>
+            <a href="/practice" class="btn btn-primary btn-sm">Launch Mock Exam</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Subject Cards Grid Section -->
+    <div class="page-header" style="margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <h2 style="font-size: 1.35rem; font-weight: 700;">
+          <%= selectedSemester === 'all' ? 'All Curriculum Subjects' : `Semester ${selectedSemester} Subjects` %>
+        </h2>
+        <span style="font-size: 0.85rem; color: var(--text-muted); background: var(--bg-surface-elevated); padding: 2px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <%= subjects.length %> <%= subjects.length === 1 ? 'Subject' : 'Subjects' %>
+        </span>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <a href="/progress" style="font-size: 0.88rem; color: var(--accent-primary); font-weight: 600;">View Full Syllabus Tracker →</a>
+      </div>
+    </div>
+
+    <% if (subjects && subjects.length > 0) { %>
+      <div class="subject-grid">
+        <% subjects.forEach(sub => { 
+          const subStat = (stats.allSubjectStats || stats.subjects).find(s => s.subject.id === sub.id) || { percentage: 0, completedTopicsCount: 0, totalTopics: 0 };
+        %>
+          <div class="subject-card" id="card-subject-<%= sub.id %>" style="--subject-color: <%= sub.color || '#4f46e5' %>; --subject-gradient: <%= sub.gradient || 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)' %>;">
+            <div class="subject-card-header">
+              <div class="subject-icon-box">
+                <%= sub.icon || '📚' %>
+              </div>
+              <div class="subject-meta" style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span class="subject-code"><%= sub.code %> • Sem <%= sub.semester || 3 %></span>
+                  <% if (sub.isCore) { %>
+                    <span class="core-badge" title="Core Semester 3 Foundation Subject">Core</span>
+                  <% } else { %>
+                    <span class="custom-badge" title="Added via Syllabus Upload">Custom</span>
+                  <% } %>
+                </div>
+                <h3 class="subject-name"><%= sub.name %></h3>
+              </div>
+            </div>
+
+            <p class="subject-desc"><%= sub.description || 'Comprehensive university curriculum syllabus.' %></p>
+
+            <div class="subject-stats-row">
+              <span>Syllabus Progress</span>
+              <span id="progress-text-<%= sub.id %>" style="font-weight: 700;"><%= subStat.percentage %>% (<%= subStat.completedTopicsCount %>/<%= subStat.totalTopics %>)</span>
+            </div>
+
+            <div class="progress-container">
+              <div id="progress-bar-<%= sub.id %>" class="progress-bar-fill" style="width: <%= subStat.percentage %>%;"></div>
+            </div>
+
+            <div class="subject-card-footer" style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="/subject/<%= sub.id %>" class="btn btn-secondary btn-sm" style="flex: 1;">
+                <span>📖</span>
+                <span>Open Subject</span>
+              </a>
+              <a href="/subject/<%= sub.id %>/add-lecture" class="btn btn-primary btn-sm">
+                <span>➕</span>
+                <span>Lecture</span>
+              </a>
+              <% if (!sub.isCore) { %>
+                <button type="button" class="btn btn-danger-outline btn-sm delete-subject-btn" data-id="<%= sub.id %>" data-name="<%= sub.name %>" title="Delete Subject">
+                  <span>🗑️</span>
+                </button>
+              <% } %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <!-- Recent Lectures Section -->
+    <div class="page-header" style="margin-top: 40px; margin-bottom: 16px;">
+      <h2 style="font-size: 1.35rem; font-weight: 700;">Recently Added Lectures & Study Packs</h2>
+      <a href="/library" style="font-size: 0.88rem; color: var(--accent-primary); font-weight: 600;">View All in Library →</a>
+    </div>
+
+    <% if (recentLectures && recentLectures.length > 0) { %>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+        <% recentLectures.forEach(lec => { %>
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span class="unit-number-badge"><%= lec.subjectName %></span>
+                <span style="font-size: 0.78rem; color: var(--text-muted);"><%= new Date(lec.createdAt).toLocaleDateString() %></span>
+              </div>
+              <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;"><%= lec.topicTitle %></h4>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+                <%= lec.lectureTitle %> (Unit <%= lec.unitNumber %>)
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <a href="/library/<%= lec.id %>" class="btn btn-secondary btn-sm" style="flex: 1;">View Study Notes</a>
+              <a href="/library/<%= lec.id %>/export/markdown" class="btn btn-secondary btn-sm" title="Export Markdown">⬇️ MD</a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <div class="card" style="text-align: center; padding: 40px 24px;">
+        <div style="font-size: 2.8rem; margin-bottom: 10px;">📚</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;">No Lectures Added Yet</h3>
+        <p style="color: var(--text-secondary); max-width: 480px; margin: 0 auto 18px;">
+          Start by adding a lecture from YouTube or your notes. The AI will generate Hinglish explanations, exam notes, and practice problems!
+        </p>
+        <a href="/add-lecture" class="btn btn-primary">
+          <span>➕</span>
+          <span>Add Your First Lecture</span>
+        </a>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

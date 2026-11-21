@@ -1,0 +1,201 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <h1 class="page-title">Previous Year Question (PYQ) Management & Analytics</h1>
+        <p class="page-subtitle">Upload single or multiple semester question papers (PDF or Scanned OCR) to detect repeated questions, topic frequency, and marks distribution.</p>
+      </div>
+
+      <% if (selectedSubject) { %>
+        <div>
+          <a href="/pyqs/analytics/<%= selectedSubject %>" class="btn btn-primary">
+            <span>📊</span>
+            <span>View Subject Analytics & Repeat Detection</span>
+          </a>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Subject Quick Analytics Banner (If subject is filtered) -->
+    <% if (typeof analytics !== 'undefined' && analytics && analytics.totalPapers > 0) { %>
+      <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%); border: 1px solid var(--accent-primary)40;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span style="font-size: 1.2rem;">📊</span>
+              <h3 style="font-size: 1.15rem; font-weight: 700;"><%= analytics.subject.name %> PYQ Intelligence</h3>
+              <span class="core-badge" style="background: #ef444420; color: #dc2626; font-weight: 700;">
+                🔥 <%= analytics.repeatedQuestions.length %> Repeated Questions
+              </span>
+            </div>
+            <p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0;">
+              <%= analytics.totalPapers %> papers analyzed • <%= analytics.totalQuestions %> questions mapped • <%= analytics.importanceRanking.filter(t => t.level === 'HIGH').length %> High-Yield Topics
+            </p>
+          </div>
+          <div>
+            <a href="/pyqs/analytics/<%= selectedSubject %>" class="btn btn-primary btn-sm">
+              Deep Analytics & Question Breakdown →
+            </a>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Upload Question Paper Card -->
+    <div class="card" style="margin-bottom: 32px;">
+      <h2 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <span>📤</span>
+        <span>Upload University Question Papers (Single or Multiple)</span>
+      </h2>
+
+      <form id="pyqUploadForm" enctype="multipart/form-data">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Subject *</label>
+            <select name="subjectId" class="form-control" required>
+              <option value="">-- Select Subject --</option>
+              <% subjects.forEach(sub => { %>
+                <option value="<%= sub.id %>" <%= selectedSubject === sub.id ? 'selected' : '' %>><%= sub.name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Year / Session</label>
+            <input type="text" name="year" class="form-control" placeholder="e.g., 2024 / Dec 2023" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Exam Type</label>
+            <select name="examType" class="form-control">
+              <option value="End-Semester">End-Semester University Exam</option>
+              <option value="Mid-Term">Mid-Term / Sessional Exam</option>
+              <option value="Supplementary">Supplementary Exam</option>
+              <option value="Model-Paper">University Model Paper</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Unit Focus (Optional)</label>
+            <select name="unitNumber" class="form-control">
+              <option value="">All Units / Complete Paper</option>
+              <option value="1">Unit 1</option>
+              <option value="2">Unit 2</option>
+              <option value="3">Unit 3</option>
+              <option value="4">Unit 4</option>
+              <option value="5">Unit 5</option>
+              <option value="6">Unit 6</option>
+              <option value="7">Unit 7</option>
+              <option value="8">Unit 8</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Question Paper Files (PDF or Text) - Select 1 or Multiple Files *</label>
+          <input type="file" id="paperFileInput" name="paperFiles" class="form-control" accept=".pdf,.txt" multiple required>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+            💡 Supports digital PDFs, TXT, and scanned image PDFs with automatic multimodal OCR processing. You can select multiple papers at once.
+          </p>
+        </div>
+
+        <div id="pyqUploadStatus" class="alert hidden" style="margin-bottom: 16px;"></div>
+
+        <div style="display: flex; justify-content: flex-end;">
+          <button type="submit" id="uploadPyqBtn" class="btn btn-primary">
+            <span>📤</span>
+            <span>Upload & Extract Questions</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Uploaded Papers Grid -->
+    <div class="page-header" style="margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700;">Uploaded Question Papers (<%= pyqs.length %>)</h2>
+
+      <!-- Subject Filter & Analytics link -->
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <form action="/pyqs" method="GET" style="display: flex; gap: 10px;">
+          <select name="subject" class="form-control" onchange="this.form.submit()" style="width: 220px; padding: 6px 12px; font-size: 0.85rem;">
+            <option value="">All Subjects</option>
+            <% subjects.forEach(sub => { %>
+              <option value="<%= sub.id %>" <%= selectedSubject === sub.id ? 'selected' : '' %>><%= sub.name %></option>
+            <% }) %>
+          </select>
+        </form>
+
+        <% if (selectedSubject) { %>
+          <a href="/pyqs/analytics/<%= selectedSubject %>" class="btn btn-secondary btn-sm">
+            <span>📊</span>
+            <span>Analyze Frequency</span>
+          </a>
+        <% } %>
+      </div>
+    </div>
+
+    <% if (pyqs && pyqs.length > 0) { %>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+        <% pyqs.forEach(item => { %>
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span class="unit-number-badge"><%= item.subjectName %></span>
+                <span style="font-size: 0.78rem; color: var(--text-muted);"><%= new Date(item.createdAt).toLocaleDateString() %></span>
+              </div>
+
+              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 4px;">
+                <%= item.year %> - <%= item.examType %>
+              </h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;">
+                File: <code><%= item.originalFileName %></code>
+              </p>
+
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;">
+                <% if (item.structuredQuestions && item.structuredQuestions.length > 0) { %>
+                  <span class="core-badge" style="background: #10b98120; color: #047857;">
+                    <%= item.structuredQuestions.length %> Questions Parsed
+                  </span>
+                <% } %>
+                <% if (item.isScannedPaper) { %>
+                  <span class="core-badge" style="background: #8b5cf620; color: #6d28d9;">
+                    📷 Scanned OCR
+                  </span>
+                <% } %>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <a href="/pyqs/<%= item.id %>" class="btn btn-primary btn-sm" style="flex: 1; min-width: 140px;">
+                View Extracted Questions
+              </a>
+              <a href="/pyqs/analytics/<%= item.subjectId %>" class="btn btn-secondary btn-sm" title="Analyze subject questions">
+                📊 Analytics
+              </a>
+              <button type="button" class="btn btn-danger-outline btn-sm delete-pyq-btn" data-id="<%= item.id %>" data-title="<%= item.subjectName %> - <%= item.year %> (<%= item.examType %>)" title="Delete question paper">
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <div class="card" style="text-align: center; padding: 40px 20px;">
+        <div style="font-size: 2.5rem; margin-bottom: 12px;">📑</div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;">No Question Papers Uploaded Yet</h3>
+        <p style="color: var(--text-secondary); max-width: 440px; margin: 0 auto;">
+          Upload university past question papers above to parse authentic questions chapter-wise and build your revision bank!
+        </p>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+
+<script src="/js/pyq.js"></script>
+<%- include('../partials/footer') %>

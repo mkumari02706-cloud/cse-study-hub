@@ -1,0 +1,17 @@
+[
+  {
+    "studentId": "default_student",
+    "type": "explore",
+    "entityId": "devops",
+    "completedMilestones": [
+      "devops_5"
+    ],
+    "totalMilestones": 12,
+    "percentComplete": 8,
+    "_id": "learning_progress_1795236763878_8hnx40n",
+    "id": "learning_progress_1795236763878_8hnx40n",
+    "createdAt": "2026-11-21T04:52:43.878Z",
+    "updatedAt": "2026-11-21T10:02:25.902Z",
+    "lastActiveDate": "2026-11-21"
+  }
+]

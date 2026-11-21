@@ -1,0 +1,9 @@
+
+    University Examination 2023 - CS-301: OOPS with Java
+    Max Marks: 70
+    Q1(a) Explain JVM, JRE, JDK Architecture with a neat diagram. [7 Marks]
+    Q1(b) Differentiate between Method Overloading and Method Overriding. [7 Marks]
+    Q2(a) Explain Exception Hierarchy in Java with Checked vs Unchecked exceptions. [7 Marks]
+    Q3(a) Write a Java program implementing Producer-Consumer problem using wait() and notify(). [10 Marks]
+    Q4(a) Explain dynamic method dispatch with an example. [5 Marks]
+  

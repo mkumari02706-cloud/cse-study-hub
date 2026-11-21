@@ -1,0 +1,305 @@
+// Add Lecture & AI Study Material Generator Interactions
+
+let currentTranscript = '';
+let currentVideoMetadata = null;
+let generatedMaterials = {
+  hinglish: '',
+  examNotes: '',
+  importantQuestions: '',
+  quickRevision: '',
+  codeExamples: ''
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const subjectSelect = document.getElementById('subjectSelect');
+  const unitSelect = document.getElementById('unitSelect');
+  const topicSelect = document.getElementById('topicSelect');
+  const customTopicInput = document.getElementById('customTopicInput');
+
+  // Handle dynamic units & topics on subject change
+  if (subjectSelect) {
+    subjectSelect.addEventListener('change', updateUnitsAndTopics);
+    updateUnitsAndTopics(); // initial run
+  }
+
+  if (unitSelect) {
+    unitSelect.addEventListener('change', updateTopics);
+  }
+
+  function updateUnitsAndTopics() {
+    const selectedSubId = subjectSelect.value;
+    const subjectData = window.SUBJECTS_DATA ? window.SUBJECTS_DATA.find(s => s.id === selectedSubId) : null;
+
+    if (!unitSelect || !subjectData) return;
+
+    unitSelect.innerHTML = '<option value="">-- Select Unit --</option>';
+    subjectData.units.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.number;
+      opt.textContent = `Unit ${u.number}: ${u.title}`;
+      opt.dataset.topics = JSON.stringify(u.topics || []);
+      unitSelect.appendChild(opt);
+    });
+
+    if (subjectData.units.length > 0) {
+      unitSelect.selectedIndex = 1;
+      updateTopics();
+    }
+  }
+
+  function updateTopics() {
+    const selectedOpt = unitSelect.options[unitSelect.selectedIndex];
+    if (!topicSelect || !selectedOpt) return;
+
+    const topics = selectedOpt.dataset.topics ? JSON.parse(selectedOpt.dataset.topics) : [];
+    topicSelect.innerHTML = '<option value="">-- Select Predefined Topic or Enter Custom --</option>';
+
+    topics.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      topicSelect.appendChild(opt);
+    });
+
+    if (topics.length > 0) {
+      topicSelect.selectedIndex = 1;
+      if (customTopicInput) customTopicInput.value = topics[0];
+    }
+  }
+
+  if (topicSelect && customTopicInput) {
+    topicSelect.addEventListener('change', () => {
+      if (topicSelect.value) {
+        customTopicInput.value = topicSelect.value;
+      }
+    });
+  }
+
+  // 1. Fetch YouTube Transcript
+  const fetchTranscriptBtn = document.getElementById('fetchTranscriptBtn');
+  const videoUrlInput = document.getElementById('videoUrlInput');
+  const langSelect = document.getElementById('transcriptLangSelect');
+  const transcriptStatus = document.getElementById('transcriptStatus');
+  const transcriptPreview = document.getElementById('transcriptPreview');
+  const manualTranscriptArea = document.getElementById('manualTranscriptArea');
+  const manualBox = document.getElementById('manualTranscriptBox');
+
+  if (fetchTranscriptBtn) {
+    fetchTranscriptBtn.addEventListener('click', async () => {
+      const url = videoUrlInput.value.trim();
+      if (!url) {
+        showStatus('Please enter a YouTube video URL.', 'danger');
+        return;
+      }
+
+      showStatus('Fetching transcript & video metadata...', 'info', true);
+      fetchTranscriptBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/transcript', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl: url, language: langSelect.value })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          currentTranscript = data.fullText;
+          currentVideoMetadata = data.metadata;
+
+          showStatus(`✅ Transcript retrieved successfully (${data.wordCount} words, Language: ${data.language}).`, 'success');
+          if (transcriptPreview) {
+            transcriptPreview.value = data.timestampedText || data.fullText;
+            transcriptPreview.classList.remove('hidden');
+          }
+          if (manualBox) manualBox.classList.add('hidden');
+
+          // Autofill lecture title if blank
+          const titleInput = document.getElementById('lectureTitleInput');
+          if (titleInput && !titleInput.value && data.metadata && data.metadata.title) {
+            titleInput.value = data.metadata.title;
+          }
+
+          // Enable AI Generator buttons
+          enableAIGenerator();
+        } else {
+          // Clear error handling with manual fallback
+          showStatus(`⚠️ ${data.error}`, 'warning');
+          if (manualBox) manualBox.classList.remove('hidden');
+          if (transcriptPreview) transcriptPreview.classList.add('hidden');
+        }
+      } catch (err) {
+        showStatus(`⚠️ Network error: ${err.message}. You can paste the transcript manually below.`, 'warning');
+        if (manualBox) manualBox.classList.remove('hidden');
+      } finally {
+        fetchTranscriptBtn.disabled = false;
+      }
+    });
+  }
+
+  // Manual Transcript Paste / Upload Handler
+  const useManualBtn = document.getElementById('useManualBtn');
+  if (useManualBtn && manualTranscriptArea) {
+    useManualBtn.addEventListener('click', () => {
+      const manualText = manualTranscriptArea.value.trim();
+      if (!manualText) {
+        alert('Please paste transcript text into the box.');
+        return;
+      }
+      currentTranscript = manualText;
+      showStatus(`✅ Manual transcript accepted (${manualText.split(/\s+/).length} words).`, 'success');
+      enableAIGenerator();
+    });
+  }
+
+  function showStatus(msg, type = 'info', loading = false) {
+    if (!transcriptStatus) return;
+    transcriptStatus.className = `alert alert-${type}`;
+    transcriptStatus.innerHTML = loading
+      ? `<span class="spinner">⏳</span> ${msg}`
+      : msg;
+    transcriptStatus.classList.remove('hidden');
+  }
+
+  function enableAIGenerator() {
+    const aiSection = document.getElementById('aiGeneratorSection');
+    if (aiSection) aiSection.classList.remove('hidden');
+  }
+
+  // 2. Generate All Sections (1-Click)
+  const generateAllBtn = document.getElementById('generateAllBtn');
+  if (generateAllBtn) {
+    generateAllBtn.addEventListener('click', async () => {
+      const transcript = currentTranscript || (manualTranscriptArea ? manualTranscriptArea.value.trim() : '');
+      if (!transcript) {
+        alert('Please fetch or paste a lecture transcript first.');
+        return;
+      }
+
+      const subjectId = subjectSelect.value;
+      const topic = (customTopicInput && customTopicInput.value) || (topicSelect && topicSelect.value) || 'General CSE';
+
+      generateAllBtn.disabled = true;
+      generateAllBtn.innerHTML = '⏳ Generating 5 Study Sections with AI...';
+
+      try {
+        const res = await fetch('/api/generate-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subjectId, topic, transcript })
+        });
+        const data = await res.json();
+
+        if (data.success && data.studyMaterials) {
+          generatedMaterials = data.studyMaterials;
+          renderGeneratedTabs(data.studyMaterials);
+          document.getElementById('saveSection').classList.remove('hidden');
+        } else {
+          alert(`AI Generation Notice: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Error during generation: ${err.message}`);
+      } finally {
+        generateAllBtn.disabled = false;
+        generateAllBtn.innerHTML = '✨ Generate Complete Study Pack';
+      }
+    });
+  }
+
+  // 3. Tab Switching for Generated Materials
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabTarget = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      const targetPane = document.getElementById(tabTarget);
+      if (targetPane) targetPane.classList.add('active');
+    });
+  });
+
+  function renderGeneratedTabs(materials) {
+    const panes = {
+      tabHinglish: materials.hinglish || '*No Hinglish notes generated.*',
+      tabExamNotes: materials.examNotes || '*No Exam notes generated.*',
+      tabQuestions: materials.importantQuestions || '*No Questions generated.*',
+      tabRevision: materials.quickRevision || '*No Revision summary generated.*',
+      tabCode: materials.codeExamples || '*No Code examples generated.*'
+    };
+
+    Object.keys(panes).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        // Render simple markdown or text
+        el.innerHTML = `<div class="markdown-body">${formatMarkdown(panes[id])}</div>`;
+      }
+    });
+  }
+
+  // Basic markdown formatter for preview
+  function formatMarkdown(md) {
+    if (!md) return '';
+    return md
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+      .replace(/```([\s\S]*?)```/gim, '<pre><code>$1</code></pre>')
+      .replace(/`([^`]+)`/gim, '<code>$1</code>')
+      .replace(/^\- (.*$)/gim, '<li>$1</li>')
+      .replace(/\n/gim, '<br>');
+  }
+
+  // 4. Save to Study Hub
+  const saveLectureBtn = document.getElementById('saveLectureBtn');
+  if (saveLectureBtn) {
+    saveLectureBtn.addEventListener('click', async () => {
+      const subjectId = subjectSelect.value;
+      const unitNumber = unitSelect.value;
+      const unitOpt = unitSelect.options[unitSelect.selectedIndex];
+      const unitTitle = unitOpt ? unitOpt.textContent.replace(/^Unit \d+:\s*/, '') : '';
+      const topicTitle = (customTopicInput && customTopicInput.value) || 'Lecture Topic';
+      const lectureTitle = (document.getElementById('lectureTitleInput') && document.getElementById('lectureTitleInput').value) || topicTitle;
+      const videoUrl = videoUrlInput.value.trim();
+      const markTopicComplete = document.getElementById('markTopicCompleteCheckbox') ? document.getElementById('markTopicCompleteCheckbox').checked : false;
+
+      saveLectureBtn.disabled = true;
+      saveLectureBtn.innerHTML = '💾 Saving to Subject Folders...';
+
+      try {
+        const res = await fetch('/api/save-lecture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subjectId,
+            unitNumber,
+            unitTitle,
+            topicTitle,
+            lectureTitle,
+            videoUrl,
+            videoId: currentVideoMetadata ? currentVideoMetadata.videoId : null,
+            transcriptText: currentTranscript,
+            studyMaterials: generatedMaterials,
+            markTopicComplete
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          alert('✅ Lecture and all study materials successfully saved to your subject folder!');
+          window.location.href = `/library/${data.lecture.id}`;
+        } else {
+          alert(`Save Error: ${data.error}`);
+          saveLectureBtn.disabled = false;
+          saveLectureBtn.innerHTML = '💾 Save to Study Hub';
+        }
+      } catch (err) {
+        alert(`Save Error: ${err.message}`);
+        saveLectureBtn.disabled = false;
+        saveLectureBtn.innerHTML = '💾 Save to Study Hub';
+      }
+    });
+  }
+});

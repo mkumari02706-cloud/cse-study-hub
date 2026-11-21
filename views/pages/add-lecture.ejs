@@ -1,0 +1,215 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Add Lecture & Generate Study Pack</h1>
+        <p class="page-subtitle">Extract YouTube transcripts or paste your own, then generate Hinglish explanations, exam notes, and practice problems.</p>
+      </div>
+    </div>
+
+    <% if (!aiConfigured) { %>
+      <div class="alert alert-warning">
+        <span>⚠️</span>
+        <div>
+          <strong>AI API Key Not Set in <code>.env</code>:</strong> You can still fetch YouTube transcripts and manually write/save notes! To unlock automatic AI study material generation, add <code>GEMINI_API_KEY=your_key</code> or <code>OPENAI_API_KEY=your_key</code> to your <code>.env</code> file.
+        </div>
+      </div>
+    <% } %>
+
+    <div style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+
+      <!-- Step 1: Lecture Metadata & Subject Selection -->
+      <div class="card">
+        <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+          <span style="background: var(--accent-light); color: var(--accent-primary); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem;">1</span>
+          <span>Lecture & Syllabus Details</span>
+        </h2>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+          <div class="form-group">
+            <label class="form-label" for="subjectSelect">Select Subject *</label>
+            <select id="subjectSelect" class="form-control" required>
+              <% subjects.forEach(sub => { %>
+                <option value="<%= sub.id %>" <%= selectedSubjectId === sub.id ? 'selected' : '' %>><%= sub.name %> (<%= sub.code %>)</option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="unitSelect">Select Unit *</label>
+            <select id="unitSelect" class="form-control" required>
+              <option value="">-- Loading Units --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="topicSelect">Predefined Syllabus Topic</label>
+            <select id="topicSelect" class="form-control">
+              <option value="">-- Loading Topics --</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label" for="customTopicInput">Topic Name (or Custom) *</label>
+            <input type="text" id="customTopicInput" class="form-control" placeholder="e.g., Dynamic Method Dispatch & Interfaces" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="lectureTitleInput">Lecture Title (Optional)</label>
+            <input type="text" id="lectureTitleInput" class="form-control" placeholder="Autofilled from YouTube or enter lecture name">
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: YouTube Video & Transcript Retrieval -->
+      <div class="card">
+        <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+          <span style="background: var(--accent-light); color: var(--accent-primary); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem;">2</span>
+          <span>YouTube Video & Transcript</span>
+        </h2>
+
+        <div style="display: grid; grid-template-columns: 3fr 1fr auto; gap: 12px; align-items: end; margin-bottom: 16px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="videoUrlInput">YouTube Video URL or Video ID *</label>
+            <input type="text" id="videoUrlInput" class="form-control" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/...">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="transcriptLangSelect">Captions Language</label>
+            <select id="transcriptLangSelect" class="form-control">
+              <option value="en">English (en)</option>
+              <option value="hi">Hindi (hi)</option>
+            </select>
+          </div>
+
+          <div>
+            <button type="button" id="fetchTranscriptBtn" class="btn btn-primary" style="height: 42px;">
+              <span>🎙️</span>
+              <span>Fetch Transcript</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Status / Clear Error Box -->
+        <div id="transcriptStatus" class="alert alert-info hidden" style="margin-bottom: 16px;"></div>
+
+        <!-- Transcript Preview Box -->
+        <textarea id="transcriptPreview" class="form-control hidden" rows="8" readonly placeholder="Transcript will appear here..."></textarea>
+
+        <!-- Manual Transcript Fallback Box -->
+        <div id="manualTranscriptBox" class="hidden" style="margin-top: 16px; padding: 18px; background: var(--bg-primary); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;">📝 Manual Transcript Input</h4>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+            If captions are disabled on the YouTube video, simply paste the lecture transcript text below or upload a text file.
+          </p>
+          <textarea id="manualTranscriptArea" class="form-control" rows="6" placeholder="Paste lecture transcript or speaking notes here..."></textarea>
+          <div style="margin-top: 10px; display: flex; gap: 10px;">
+            <button type="button" id="useManualBtn" class="btn btn-secondary btn-sm">
+              <span>Use Pasted Transcript</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: AI Study Material Generator (Shown when transcript is available) -->
+      <div id="aiGeneratorSection" class="card hidden">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+          <h2 style="font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span style="background: var(--accent-light); color: var(--accent-primary); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem;">3</span>
+            <span>AI Study Material Generator</span>
+          </h2>
+
+          <button type="button" id="generateAllBtn" class="btn btn-primary">
+            <span>✨</span>
+            <span>Generate Complete Study Pack</span>
+          </button>
+        </div>
+
+        <!-- Section Tabs -->
+        <div class="tabs-nav">
+          <button type="button" class="tab-btn active" data-tab="tabHinglish">🇮🇳 Hinglish Explanation</button>
+          <button type="button" class="tab-btn" data-tab="tabExamNotes">📖 Exam Notes</button>
+          <button type="button" class="tab-btn" data-tab="tabQuestions">❓ Important Questions</button>
+          <button type="button" class="tab-btn" data-tab="tabRevision">⚡ Quick Revision</button>
+          <button type="button" class="tab-btn" data-tab="tabCode">💻 Code Examples</button>
+        </div>
+
+        <div class="tabs-content">
+          <div id="tabHinglish" class="tab-pane active">
+            <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+              Click "Generate Complete Study Pack" above to create an easy-to-understand Hinglish conceptual guide.
+            </div>
+          </div>
+
+          <div id="tabExamNotes" class="tab-pane">
+            <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+              Formal university examination answers will be generated here.
+            </div>
+          </div>
+
+          <div id="tabQuestions" class="tab-pane">
+            <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+              Exam questions derived strictly from the lecture will appear here.
+            </div>
+          </div>
+
+          <div id="tabRevision" class="tab-pane">
+            <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+              Last-minute revision bullet points and formula cards will appear here.
+            </div>
+          </div>
+
+          <div id="tabCode" class="tab-pane">
+            <div style="text-align: center; padding: 32px; color: var(--text-muted);">
+              Step-by-step code implementations and dry runs will appear here.
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Save & Checkmark Completion -->
+        <div id="saveSection" class="hidden" style="margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.92rem;">
+            <input type="checkbox" id="markTopicCompleteCheckbox" style="width: 18px; height: 18px;" checked>
+            <span>Mark this topic as <strong>Completed</strong> in my Syllabus Progress Tracker</span>
+          </label>
+
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button type="button" id="cancelLectureBtn" class="btn btn-secondary btn-lg" onclick="resetAddLectureForm()">
+              <span>Cancel / Discard</span>
+            </button>
+            <button type="button" id="saveLectureBtn" class="btn btn-success btn-lg">
+              <span>💾</span>
+              <span>Save to Study Hub</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Pass backend subjects configuration to client-side JS -->
+<script>
+  window.SUBJECTS_DATA = <%- JSON.stringify(subjects) %>;
+  async function resetAddLectureForm() {
+    const confirmed = await window.showConfirmDialog({
+      title: 'Discard Lecture Materials',
+      message: 'Are you sure you want to discard the fetched transcript and generated study notes?',
+      confirmText: 'Discard',
+      isDanger: false
+    });
+    if (confirmed) {
+      window.location.reload();
+    }
+  }
+</script>
+<script src="/js/addLecture.js"></script>
+<%- include('../partials/footer') %>

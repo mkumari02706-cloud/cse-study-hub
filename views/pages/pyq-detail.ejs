@@ -1,0 +1,62 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span class="unit-number-badge"><%= pyq.subjectName %></span>
+          <span style="font-size: 0.85rem; color: var(--text-muted);"><%= pyq.examType %></span>
+        </div>
+        <h1 class="page-title"><%= pyq.subjectName %> - <%= pyq.year %> Exam Paper</h1>
+        <p class="page-subtitle">Preserved original: <code><%= pyq.originalFileName %></code></p>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <a href="/pyqs" class="btn btn-secondary">← Back to PYQ List</a>
+        <button type="button" class="btn btn-danger-outline" onclick="deletePYQFromDetail('<%= pyq.id %>')">
+          🗑️ Delete Paper
+        </button>
+      </div>
+    </div>
+
+    <!-- Extracted Questions Card -->
+    <div class="card">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+        📝 Authentically Extracted Questions
+      </h2>
+
+      <div class="markdown-body">
+        <%- pyq.extractedQuestions ? pyq.extractedQuestions.replace(/\n/g, '<br>') : '*No extracted questions found.*' %>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  async function deletePYQFromDetail(id) {
+    const confirmed = await window.showConfirmDialog({
+      title: 'Delete Question Paper',
+      message: 'Are you sure you want to permanently delete this question paper and all extracted questions?',
+      confirmText: 'Confirm Delete'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/pyqs/api/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        window.showToast('Question paper deleted successfully.', 'success');
+        setTimeout(() => { window.location.href = '/pyqs'; }, 450);
+      } else {
+        window.showToast(`Delete failed: ${data.error}`, 'error');
+      }
+    } catch (e) {
+      window.showToast(`Error: ${e.message}`, 'error');
+    }
+  }
+</script>
+
+<%- include('../partials/footer') %>

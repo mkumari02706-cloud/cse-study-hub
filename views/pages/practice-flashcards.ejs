@@ -1,0 +1,287 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+          <span class="unit-number-badge"><%= deck.subjectName %></span>
+          <span class="core-badge" style="background: #8b5cf620; color: #7c3aed;">🃏 Active Recall Flashcards</span>
+          <span class="nav-badge" id="completionRateBadge" style="background: #10b98120; color: #10b981; font-weight: 700;">0% Completed</span>
+        </div>
+        <h1 class="page-title" style="margin: 0;"><%= deck.topicName %></h1>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary" onclick="shuffleCards()" title="Shuffle the deck (Press S)">
+          <span>🔀 Shuffle</span>
+        </button>
+        <a href="/practice/quiz?subject=<%= deck.subjectId %>&topic=<%= encodeURIComponent(deck.topicName) %>" class="btn btn-primary">
+          <span>🎯 Take Quiz</span>
+        </a>
+        <a href="/practice" class="btn btn-secondary">← Back to Practice</a>
+      </div>
+    </div>
+
+    <!-- Flashcards Container -->
+    <div style="max-width: 720px; margin: 0 auto;">
+      <!-- Progress Bar & Counters -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.88rem; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span id="cardCounter" style="font-weight: 700;">Card 1 of <%= (deck.flashcards && deck.flashcards.length) ? deck.flashcards.length : 1 %></span>
+          <span id="completedCounterText" style="color: var(--text-muted); font-size: 0.82rem;">0 Completed</span>
+        </div>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">💡 Click or Space to flip • Left/Right to navigate</span>
+      </div>
+
+      <!-- Linear Deck Progress Bar -->
+      <div class="progress-container" style="height: 8px; margin-bottom: 24px; border-radius: 4px; overflow: hidden; background: var(--border-color);">
+        <div id="deckProgressBar" class="progress-bar-fill" style="width: 0%; background: #8b5cf6; transition: width 0.3s ease;"></div>
+      </div>
+
+      <!-- Flippable Card Container -->
+      <div id="flashcardElement" class="card" style="min-height: 320px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; padding: 28px 24px; cursor: pointer; user-select: none; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; border: 2px solid var(--border-color); background: var(--bg-surface); position: relative; border-radius: var(--radius-md);">
+        
+        <!-- Header row of card: Side Badge, Topic Badge, Difficulty Badge -->
+        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="cardSideBadge" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-primary); background: var(--accent-light); padding: 3px 10px; border-radius: 12px;">
+              PROMPT / FRONT
+            </span>
+            <span id="cardTopicBadge" class="unit-number-badge" style="font-size: 0.74rem;">
+              <%= deck.topicName %>
+            </span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="cardCompletedTag" style="display: none; font-size: 0.72rem; font-weight: 700; color: #10b981; background: #10b98120; padding: 2px 8px; border-radius: 10px;">
+              ✅ Completed
+            </span>
+            <span id="cardDifficultyBadge" class="nav-badge" style="font-size: 0.75rem; background: #f59e0b20; color: #f59e0b;">
+              Medium
+            </span>
+          </div>
+        </div>
+
+        <!-- Center content of card -->
+        <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 20px 10px;">
+          <div id="cardText" style="font-size: 1.25rem; font-weight: 600; line-height: 1.6; color: var(--text-primary); white-space: pre-line;">
+            Loading flashcard...
+          </div>
+        </div>
+
+        <!-- Footer hint of card -->
+        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted); padding-top: 12px; border-top: 1px solid var(--border-color);">
+          <span id="cardHintText">🔄 Click anywhere on the card to flip</span>
+          <span style="font-weight: 600;" id="cardIndexFooter">Card 1</span>
+        </div>
+      </div>
+
+      <!-- Controls Action Bar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; flex-wrap: wrap; gap: 12px;">
+        <button type="button" id="prevCardBtn" class="btn btn-secondary" disabled>
+          ← Previous
+        </button>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary" id="flipBtn" onclick="toggleFlip()">
+            🔄 Flip Card
+          </button>
+          <button type="button" class="btn btn-secondary" id="markDoneBtn" onclick="toggleCompleted()">
+            <span id="markDoneIcon">✅</span>
+            <span id="markDoneText">Mark as Completed</span>
+          </button>
+        </div>
+
+        <button type="button" id="nextCardBtn" class="btn btn-primary">
+          Next Card →
+        </button>
+      </div>
+
+      <!-- Quick summary & shortcut guide -->
+      <div style="margin-top: 24px; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <strong>Keyboard Shortcuts:</strong> <kbd style="background: var(--bg-primary); padding: 2px 6px; border: 1px solid var(--border-color); border-radius: 4px;">Space</kbd> Flip • <kbd style="background: var(--bg-primary); padding: 2px 6px; border: 1px solid var(--border-color); border-radius: 4px;">←</kbd> Prev • <kbd style="background: var(--bg-primary); padding: 2px 6px; border: 1px solid var(--border-color); border-radius: 4px;">→</kbd> Next • <kbd style="background: var(--bg-primary); padding: 2px 6px; border: 1px solid var(--border-color); border-radius: 4px;">C</kbd> Complete • <kbd style="background: var(--bg-primary); padding: 2px 6px; border: 1px solid var(--border-color); border-radius: 4px;">S</kbd> Shuffle
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  let rawCards = <%- JSON.stringify(deck.flashcards || []) %>;
+  
+  // Guarantee fallback cards if deck is empty so it NEVER shows an empty screen
+  if (!rawCards || rawCards.length === 0) {
+    rawCards = [
+      {
+        id: 1,
+        front: "What is the core architectural principle behind <%= deck.topicName %>?",
+        back: "Provides structured modularity, state preservation, and predictable algorithmic execution in <%= deck.subjectName %>.",
+        topic: "<%= deck.topicName %>",
+        difficultyLevel: "Easy"
+      },
+      {
+        id: 2,
+        front: "Exam Focus: Key diagram or model to draw for <%= deck.topicName %>?",
+        back: "Draw the state diagram / architecture diagram with labelled transitions, invariants, and component boundaries.",
+        topic: "<%= deck.topicName %>",
+        difficultyLevel: "Medium"
+      },
+      {
+        id: 3,
+        front: "What common edge case or bug arises when implementing <%= deck.topicName %>?",
+        back: "Watch out for out-of-bounds boundary errors, null pointer dereferences, race conditions, and memory leaks.",
+        topic: "<%= deck.topicName %>",
+        difficultyLevel: "Hard"
+      }
+    ];
+  }
+
+  let cards = [...rawCards];
+  let currentCardIndex = 0;
+  let isFlipped = false;
+  const completedCards = new Set();
+
+  const cardElement = document.getElementById('flashcardElement');
+  const cardText = document.getElementById('cardText');
+  const cardSideBadge = document.getElementById('cardSideBadge');
+  const cardTopicBadge = document.getElementById('cardTopicBadge');
+  const cardDifficultyBadge = document.getElementById('cardDifficultyBadge');
+  const cardCompletedTag = document.getElementById('cardCompletedTag');
+  const cardCounter = document.getElementById('cardCounter');
+  const cardIndexFooter = document.getElementById('cardIndexFooter');
+  const completedCounterText = document.getElementById('completedCounterText');
+  const completionRateBadge = document.getElementById('completionRateBadge');
+  const progressBar = document.getElementById('deckProgressBar');
+  const prevBtn = document.getElementById('prevCardBtn');
+  const nextBtn = document.getElementById('nextCardBtn');
+  const markDoneIcon = document.getElementById('markDoneIcon');
+  const markDoneText = document.getElementById('markDoneText');
+
+  function renderCard() {
+    isFlipped = false;
+    const card = cards[currentCardIndex];
+    if (!card) return;
+
+    cardText.innerText = card.front;
+    cardSideBadge.innerText = 'PROMPT / FRONT';
+    cardSideBadge.style.color = 'var(--accent-primary)';
+    cardSideBadge.style.background = 'var(--accent-light)';
+
+    cardTopicBadge.innerText = card.topic || "<%= deck.topicName %>";
+
+    const diff = card.difficultyLevel || card.difficulty || 'Medium';
+    cardDifficultyBadge.innerText = diff;
+    if (diff.toLowerCase() === 'easy') {
+      cardDifficultyBadge.style.background = '#10b98120';
+      cardDifficultyBadge.style.color = '#10b981';
+    } else if (diff.toLowerCase() === 'hard') {
+      cardDifficultyBadge.style.background = '#ef444420';
+      cardDifficultyBadge.style.color = '#ef4444';
+    } else {
+      cardDifficultyBadge.style.background = '#f59e0b20';
+      cardDifficultyBadge.style.color = '#f59e0b';
+    }
+
+    const isCardDone = completedCards.has(currentCardIndex);
+    cardCompletedTag.style.display = isCardDone ? 'inline-block' : 'none';
+    markDoneIcon.innerText = isCardDone ? '↩️' : '✅';
+    markDoneText.innerText = isCardDone ? 'Mark Incomplete' : 'Mark as Completed';
+
+    cardCounter.innerText = `Card ${currentCardIndex + 1} of ${cards.length}`;
+    cardIndexFooter.innerText = `Card ${currentCardIndex + 1} of ${cards.length}`;
+    
+    // Progress calculation
+    const compCount = completedCards.size;
+    const compPercent = Math.round((compCount / cards.length) * 100);
+    completedCounterText.innerText = `${compCount} of ${cards.length} Completed`;
+    completionRateBadge.innerText = `${compPercent}% Completed`;
+    progressBar.style.width = `${((currentCardIndex + 1) / cards.length) * 100}%`;
+
+    prevBtn.disabled = (currentCardIndex === 0);
+    nextBtn.innerText = (currentCardIndex === cards.length - 1) ? 'Finish Deck 🏁' : 'Next Card →';
+  }
+
+  function toggleFlip() {
+    isFlipped = !isFlipped;
+    const card = cards[currentCardIndex];
+    if (!card) return;
+
+    if (isFlipped) {
+      cardText.innerText = card.back;
+      cardSideBadge.innerText = 'KEY TAKEAWAY / BACK';
+      cardSideBadge.style.color = '#10b981';
+      cardSideBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+    } else {
+      cardText.innerText = card.front;
+      cardSideBadge.innerText = 'PROMPT / FRONT';
+      cardSideBadge.style.color = 'var(--accent-primary)';
+      cardSideBadge.style.background = 'var(--accent-light)';
+    }
+  }
+
+  function toggleCompleted() {
+    if (completedCards.has(currentCardIndex)) {
+      completedCards.delete(currentCardIndex);
+    } else {
+      completedCards.add(currentCardIndex);
+    }
+    renderCard();
+  }
+
+  function shuffleCards() {
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+    currentCardIndex = 0;
+    completedCards.clear();
+    renderCard();
+    if (window.showToast) window.showToast('Flashcards shuffled successfully!', 'info');
+  }
+
+  cardElement.addEventListener('click', toggleFlip);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      toggleFlip();
+    } else if (e.code === 'ArrowRight' && currentCardIndex < cards.length - 1) {
+      currentCardIndex++;
+      renderCard();
+    } else if (e.code === 'ArrowLeft' && currentCardIndex > 0) {
+      currentCardIndex--;
+      renderCard();
+    } else if (e.key === 'c' || e.key === 'C') {
+      toggleCompleted();
+    } else if (e.key === 's' || e.key === 'S') {
+      shuffleCards();
+    }
+  });
+
+  prevBtn.addEventListener('click', () => {
+    if (currentCardIndex > 0) {
+      currentCardIndex--;
+      renderCard();
+    }
+  });
+
+  nextBtn.addEventListener('click', () => {
+    if (currentCardIndex < cards.length - 1) {
+      currentCardIndex++;
+      renderCard();
+    } else {
+      window.location.href = `/practice/quiz?subject=<%= deck.subjectId %>&topic=<%= encodeURIComponent(deck.topicName) %>`;
+    }
+  });
+
+  // Initial render
+  renderCard();
+</script>
+
+<%- include('../partials/footer') %>

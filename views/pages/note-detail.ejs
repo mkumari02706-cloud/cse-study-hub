@@ -1,0 +1,187 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <!-- Header with Action Buttons -->
+    <div class="page-header">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span class="unit-number-badge"><%= lecture.subjectName %></span>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Unit <%= lecture.unitNumber %>: <%= lecture.unitTitle %></span>
+        </div>
+        <h1 class="page-title"><%= lecture.topicTitle %></h1>
+        <p class="page-subtitle"><%= lecture.lectureTitle %> • Added on <%= new Date(lecture.createdAt).toLocaleDateString() %></p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" id="editToggleBtn" class="btn btn-secondary">
+          <span>✏️</span>
+          <span>Edit Notes</span>
+        </button>
+        <a href="/library/<%= lecture.id %>/export/markdown" class="btn btn-secondary" title="Download Markdown">
+          <span>⬇️</span>
+          <span>Export Markdown</span>
+        </a>
+        <button type="button" id="printPdfBtn" class="btn btn-primary" title="Export as PDF / Print">
+          <span>🖨️</span>
+          <span>Export PDF</span>
+        </button>
+        <button type="button" class="btn btn-danger-outline" onclick="deleteCurrentNote('<%= lecture.id %>')" title="Delete this study note">
+          <span>🗑️</span>
+          <span>Delete Note</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Video Embed / Link (if available) -->
+    <% if (lecture.videoId) { %>
+      <div class="card" style="margin-bottom: 24px; padding: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 1.5rem;">▶️</span>
+            <div>
+              <strong style="font-size: 0.95rem;">Referenced Video Lecture</strong>
+              <div style="font-size: 0.82rem; color: var(--text-muted);"><%= lecture.videoUrl %></div>
+            </div>
+          </div>
+          <a href="<%= lecture.videoUrl %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+            Watch on YouTube ↗
+          </a>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- View Mode Container -->
+    <div id="viewModeContainer">
+      <!-- Tabs Navigation -->
+      <div class="tabs-nav">
+        <button type="button" class="tab-btn note-tab-btn active" data-tab="paneHinglish">🇮🇳 Hinglish Explanation</button>
+        <button type="button" class="tab-btn note-tab-btn" data-tab="paneExamNotes">📖 Exam Notes</button>
+        <button type="button" class="tab-btn note-tab-btn" data-tab="paneQuestions">❓ Important Questions</button>
+        <button type="button" class="tab-btn note-tab-btn" data-tab="paneRevision">⚡ Quick Revision</button>
+        <% if (lecture.materials && lecture.materials.codeExamples) { %>
+          <button type="button" class="tab-btn note-tab-btn" data-tab="paneCode">💻 Code Examples</button>
+        <% } %>
+      </div>
+
+      <!-- Tab Content Panes -->
+      <div class="tabs-content">
+        <div id="paneHinglish" class="tab-pane note-content-pane active">
+          <div class="markdown-body">
+            <% if (lecture.materials && lecture.materials.hinglish) { %>
+              <%- lecture.materials.hinglish.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+            <% } else { %>
+              *No Hinglish explanation saved for this lecture.*
+            <% } %>
+          </div>
+        </div>
+
+        <div id="paneExamNotes" class="tab-pane note-content-pane">
+          <div class="markdown-body">
+            <% if (lecture.materials && lecture.materials.examNotes) { %>
+              <%- lecture.materials.examNotes.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+            <% } else { %>
+              *No formal exam notes saved for this lecture.*
+            <% } %>
+          </div>
+        </div>
+
+        <div id="paneQuestions" class="tab-pane note-content-pane">
+          <div class="markdown-body">
+            <% if (lecture.materials && lecture.materials.importantQuestions) { %>
+              <%- lecture.materials.importantQuestions.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+            <% } else { %>
+              *No exam questions saved for this lecture.*
+            <% } %>
+          </div>
+        </div>
+
+        <div id="paneRevision" class="tab-pane note-content-pane">
+          <div class="markdown-body">
+            <% if (lecture.materials && lecture.materials.quickRevision) { %>
+              <%- lecture.materials.quickRevision.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+            <% } else { %>
+              *No quick revision notes saved for this lecture.*
+            <% } %>
+          </div>
+        </div>
+
+        <% if (lecture.materials && lecture.materials.codeExamples) { %>
+          <div id="paneCode" class="tab-pane note-content-pane">
+            <div class="markdown-body">
+              <%- lecture.materials.codeExamples.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Edit Mode Container (Hidden by default) -->
+    <div id="editModeContainer" style="display: none;">
+      <div class="card" style="margin-bottom: 24px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 16px;">Edit Study Content</h3>
+
+        <div class="form-group">
+          <label class="form-label">🇮🇳 Hinglish Explanation</label>
+          <textarea id="editHinglish" class="form-control" rows="8"><%= (lecture.materials && lecture.materials.hinglish) || '' %></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">📖 Exam Notes</label>
+          <textarea id="editExamNotes" class="form-control" rows="8"><%= (lecture.materials && lecture.materials.examNotes) || '' %></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">❓ Important Questions</label>
+          <textarea id="editQuestions" class="form-control" rows="6"><%= (lecture.materials && lecture.materials.importantQuestions) || '' %></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">⚡ Quick Revision</label>
+          <textarea id="editRevision" class="form-control" rows="6"><%= (lecture.materials && lecture.materials.quickRevision) || '' %></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">💻 Code Examples</label>
+          <textarea id="editCode" class="form-control" rows="6"><%= (lecture.materials && lecture.materials.codeExamples) || '' %></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+          <button type="button" id="saveEditsBtn" class="btn btn-success" data-id="<%= lecture.id %>">
+            💾 Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="/js/noteViewer.js"></script>
+<script>
+  async function deleteCurrentNote(id) {
+    const confirmed = await window.showConfirmDialog({
+      title: 'Delete Study Note',
+      message: 'Are you sure you want to permanently delete this study note and all its exported files?',
+      confirmText: 'Confirm Delete'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/library/api/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        window.showToast('Study note deleted successfully.', 'success');
+        setTimeout(() => { window.location.href = '/library'; }, 450);
+      } else {
+        window.showToast(`Delete failed: ${data.error}`, 'error');
+      }
+    } catch (e) {
+      window.showToast(`Error: ${e.message}`, 'error');
+    }
+  }
+</script>
+<%- include('../partials/footer') %>

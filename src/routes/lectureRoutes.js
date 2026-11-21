@@ -1,0 +1,172 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { subjects, getAllSubjects, getSubjectById, ROOT_DIR } = require('../config/subjects');
+const youtubeService = require('../services/youtubeService');
+const aiService = require('../services/aiService');
+const fileService = require('../services/fileService');
+const progressService = require('../services/progressService');
+
+const upload = multer({
+  dest: path.join(ROOT_DIR, 'uploads'),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
+
+// Add Lecture Page
+router.get('/add-lecture', (req, res) => {
+  const selectedSubjectId = req.query.subject || '';
+  res.render('pages/add-lecture', {
+    title: 'Add Lecture - CSE Study Hub',
+    subjects: getAllSubjects(),
+    selectedSubjectId,
+    activeNav: 'add-lecture',
+    aiConfigured: aiService.isConfigured()
+  });
+});
+
+// Subject-specific Add Lecture URL
+router.get('/subject/:id/add-lecture', (req, res) => {
+  const subject = getSubjectById(req.params.id);
+  if (!subject) return res.redirect('/add-lecture');
+
+  res.render('pages/add-lecture', {
+    title: `Add Lecture: ${subject.name}`,
+    subjects: getAllSubjects(),
+    selectedSubjectId: subject.id,
+    activeNav: subject.id,
+    aiConfigured: aiService.isConfigured()
+  });
+});
+
+// API: Fetch Transcript from YouTube
+router.post('/api/transcript', async (req, res) => {
+  try {
+    const { videoUrl, language } = req.body;
+    if (!videoUrl) {
+      return res.status(400).json({ success: false, error: 'Video URL or ID is required.' });
+    }
+
+    const result = await youtubeService.fetchTranscript(videoUrl, language || 'en');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Upload manual transcript file
+router.post('/api/upload-transcript-file', upload.single('transcriptFile'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded.' });
+    }
+    const content = fs.readFileSync(req.file.path, 'utf-8');
+    fs.unlinkSync(req.file.path); // clean up temp
+    res.json({ success: true, text: content });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Generate Single Study Section
+router.post('/api/generate-section', async (req, res) => {
+  try {
+    const { subjectId, topic, transcript, section } = req.body;
+    if (!transcript || !transcript.trim()) {
+      return res.status(400).json({ success: false, error: 'Transcript content is required.' });
+    }
+
+    const subject = getSubjectById(subjectId);
+    const subjectName = subject ? subject.name : 'Computer Science';
+
+    let content = '';
+    switch (section) {
+      case 'hinglish':
+        content = await aiService.generateHinglish(subjectName, topic, transcript);
+        break;
+      case 'examNotes':
+        content = await aiService.generateExamNotes(subjectName, topic, transcript);
+        break;
+      case 'importantQuestions':
+        content = await aiService.generateImportantQuestions(subjectName, topic, transcript);
+        break;
+      case 'quickRevision':
+        content = await aiService.generateQuickRevision(subjectName, topic, transcript);
+        break;
+      case 'codeExamples':
+        content = await aiService.generateCodeExamples(subjectName, topic, transcript);
+        break;
+      default:
+        return res.status(400).json({ success: false, error: `Invalid section: ${section}` });
+    }
+
+    res.json({ success: true, section, content });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Generate All Study Sections
+router.post('/api/generate-all', async (req, res) => {
+  try {
+    const { subjectId, topic, transcript, includeCode } = req.body;
+    if (!transcript || !transcript.trim()) {
+      return res.status(400).json({ success: false, error: 'Transcript content is required to generate notes.' });
+    }
+
+    const subject = getSubjectById(subjectId);
+    const subjectName = subject ? subject.name : 'Computer Science';
+    const shouldIncludeCode = includeCode !== undefined ? Boolean(includeCode) : (subject ? subject.hasCode : true);
+
+    const studyMaterials = await aiService.generateFullStudyPack(subjectName, topic, transcript, shouldIncludeCode);
+    res.json({ success: true, studyMaterials });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Save Lecture & Generated Materials to Files
+router.post('/api/save-lecture', async (req, res) => {
+  try {
+    const {
+      subjectId,
+      unitNumber,
+      unitTitle,
+      topicTitle,
+      lectureTitle,
+      videoUrl,
+      videoId,
+      transcriptText,
+      studyMaterials,
+      markTopicComplete
+    } = req.body;
+
+    if (!subjectId || !topicTitle) {
+      return res.status(400).json({ success: false, error: 'Subject and Topic are required.' });
+    }
+
+    const savedLecture = await fileService.saveStudyPack({
+      subjectId,
+      unitNumber: parseInt(unitNumber, 10) || 1,
+      unitTitle,
+      topicTitle,
+      lectureTitle: lectureTitle || topicTitle,
+      videoUrl,
+      videoId,
+      transcriptText,
+      studyMaterials: studyMaterials || {}
+    });
+
+    // Optionally mark topic completed in progress tracker
+    if (markTopicComplete && topicTitle) {
+      progressService.toggleTopic(subjectId, topicTitle);
+    }
+
+    res.json({ success: true, lecture: savedLecture });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+module.exports = router;

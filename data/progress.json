@@ -1,0 +1,123 @@
+{
+  "oops_java": {
+    "completedTopics": [
+      "Fallback Test Topic"
+    ],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T10:00:35.438Z"
+  },
+  "dsa_java": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-20T17:01:35.520Z"
+  },
+  "operating_systems": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-20T17:01:35.520Z"
+  },
+  "discrete_mathematics": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-20T17:01:35.520Z"
+  },
+  "digital_electronics": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-20T17:01:35.520Z"
+  },
+  "105301_digital_electronics": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.882Z"
+  },
+  "105302_data_structure_algorithms": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.885Z"
+  },
+  "105303_object_oriented_programming_us": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.886Z"
+  },
+  "105304_discrete_mathematics_and_graph": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.888Z"
+  },
+  "105305_operating_systems": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.891Z"
+  },
+  "105306_universal_human_values": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.893Z"
+  },
+  "105307_indian_knowledge_system": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.895Z"
+  },
+  "105301p_digital_electronics_lab": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.899Z"
+  },
+  "105302p_data_structure_algorithms_la": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.901Z"
+  },
+  "105303p_object_oriented_programming_us": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.903Z"
+  },
+  "105305p_operating_systems_lab": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.905Z"
+  },
+  "105308_internship_i": {
+    "completedTopics": [],
+    "completedLectures": 0,
+    "revision1": false,
+    "revision2": false,
+    "lastUpdated": "2026-11-21T03:32:42.908Z"
+  }
+}

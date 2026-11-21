@@ -1,0 +1,146 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <h1 class="page-title">Syllabus Progress & Revision Tracker</h1>
+        <p class="page-subtitle">Interactive checklist of completed topics, pending revision topics, and multi-cycle exam readiness.</p>
+      </div>
+      <div>
+        <a href="/syllabus/upload" class="btn btn-primary">
+          <span>📄</span>
+          <span>Upload Syllabus</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Multi-Semester Filter Bar -->
+    <div class="semester-filter-container">
+      <div class="semester-tabs-scroll">
+        <a href="/progress?semester=all" class="semester-tab <%= (typeof selectedSemester === 'undefined' || selectedSemester === 'all') ? 'active' : '' %>">
+          <span>All Semesters</span>
+          <span class="tab-badge"><%= subjects.length %></span>
+        </a>
+        <% for (let sem = 1; sem <= 8; sem++) { 
+          const semCount = subjects.filter(s => (s.semester || 3) === sem).length;
+        %>
+          <a href="/progress?semester=<%= sem %>" class="semester-tab <%= (typeof selectedSemester !== 'undefined' && String(selectedSemester) === String(sem)) ? 'active' : '' %>">
+            <span>Sem <%= sem %></span>
+            <% if (semCount > 0) { %>
+              <span class="tab-badge active-count"><%= semCount %></span>
+            <% } else { %>
+              <span class="tab-badge">0</span>
+            <% } %>
+          </a>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Semester Overview Card -->
+    <div class="card" style="margin-bottom: 32px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 1.35rem; font-weight: 700;">
+            <%= (typeof selectedSemester !== 'undefined' && selectedSemester !== 'all') ? `Semester ${selectedSemester} Completion Rate` : 'Overall Curriculum Completion Rate' %>
+          </h2>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">
+            <%= stats.grandCompletedTopics %> of <%= stats.grandTotalTopics %> topics mastered across <%= stats.subjects.length %> <%= stats.subjects.length === 1 ? 'subject' : 'subjects' %>
+          </p>
+        </div>
+        <div style="font-size: 2.2rem; font-weight: 800; color: var(--accent-primary);">
+          <%= stats.overallPercentage %>%
+        </div>
+      </div>
+
+      <div class="progress-container" style="height: 12px; margin-bottom: 0;">
+        <div class="progress-bar-fill" style="width: <%= stats.overallPercentage %>%; background: linear-gradient(90deg, #4f46e5 0%, #10b981 100%);"></div>
+      </div>
+    </div>
+
+    <!-- Subject Breakdowns & Pending Revision Topics -->
+    <% if (stats.subjects && stats.subjects.length > 0) { %>
+      <div style="display: flex; flex-direction: column; gap: 28px;">
+        <% stats.subjects.forEach(item => { %>
+          <div class="card" style="border-left: 5px solid <%= item.subject.color %>;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div class="subject-icon-box" style="width: 44px; height: 44px; font-size: 1.4rem; background: <%= item.subject.gradient %>;">
+                  <%= item.subject.icon %>
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <h3 style="font-size: 1.2rem; font-weight: 700;"><%= item.subject.name %></h3>
+                    <span class="subject-code">Sem <%= item.subject.semester || 3 %></span>
+                  </div>
+                  <span style="font-size: 0.82rem; color: var(--text-muted);"><%= item.completedTopicsCount %> / <%= item.totalTopics %> Topics Completed</span>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="progress-text-<%= item.subject.id %>" style="font-size: 1.1rem; font-weight: 700; color: <%= item.subject.color %>;">
+                  <%= item.percentage %>%
+                </span>
+                <a href="/subject/<%= item.subject.id %>" class="btn btn-secondary btn-sm">View Subject</a>
+              </div>
+            </div>
+
+            <div class="progress-container">
+              <div id="progress-bar-<%= item.subject.id %>" class="progress-bar-fill" style="width: <%= item.percentage %>%; background: <%= item.subject.color %>;"></div>
+            </div>
+
+            <!-- Pending Topics Checklist for Revision -->
+            <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-subtle);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <strong style="font-size: 0.9rem; color: var(--text-secondary);">
+                  Pending Topics (<%= item.pendingTopics.length %>)
+                </strong>
+              </div>
+
+              <% if (item.pendingTopics.length > 0) { %>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px;">
+                  <% item.pendingTopics.slice(0, 8).forEach(pt => { %>
+                    <div class="topic-item" style="background: var(--bg-primary); padding: 8px 12px;">
+                      <label class="topic-checkbox-label" style="font-size: 0.85rem;">
+                        <input type="checkbox" class="topic-checkbox" data-subject="<%= item.subject.id %>" data-topic="<%= pt.topic %>">
+                        <span><%= pt.topic %> <small style="color: var(--text-muted);">(U<%= pt.unitNumber %>)</small></span>
+                      </label>
+                    </div>
+                  <% }) %>
+                </div>
+                <% if (item.pendingTopics.length > 8) { %>
+                  <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                    + <%= item.pendingTopics.length - 8 %> more pending topics. Check full list inside <a href="/subject/<%= item.subject.id %>" style="color: var(--accent-primary);">subject page</a>.
+                  </p>
+                <% } %>
+              <% } else { %>
+                <div style="padding: 12px; background: var(--success-light); color: #065f46; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 600;">
+                  🎉 All topics completed for <%= item.subject.name %>! Ready for full-syllabus mock exams.
+                </div>
+              <% } %>
+            </div>
+
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <div class="card" style="text-align: center; padding: 48px 24px;">
+        <div style="font-size: 3rem; margin-bottom: 12px;">📚</div>
+        <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px;">No Subjects Found</h3>
+        <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto 20px;">
+          No subjects exist for Semester <%= selectedSemester %>. Add a subject via PDF upload or manual entry to start tracking syllabus progress.
+        </p>
+        <a href="/syllabus/upload?semester=<%= selectedSemester %>" class="btn btn-primary">
+          <span>📄</span>
+          <span>Upload Syllabus PDF</span>
+        </a>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

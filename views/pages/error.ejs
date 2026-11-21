@@ -1,0 +1,26 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container" style="padding: 40px 20px;">
+    <div class="alert alert-danger" style="margin-bottom: 24px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 8px;">Application Error</h2>
+      <p><%= error && error.message ? error.message : 'An unexpected error occurred.' %></p>
+    </div>
+
+    <% if (error && error.stack) { %>
+      <div class="card">
+        <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 8px;">Technical Details</h4>
+        <pre style="background: #0f172a; color: #f8fafc; padding: 14px; border-radius: 8px; font-size: 0.85rem; overflow-x: auto;"><code><%= error.stack %></code></pre>
+      </div>
+    <% } %>
+
+    <div style="margin-top: 24px;">
+      <a href="/" class="btn btn-secondary">Return to Dashboard</a>
+    </div>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,25 @@
+<header class="topbar">
+  <div style="display: flex; align-items: center; gap: 16px;">
+    <button id="mobileMenuBtn" class="btn btn-secondary btn-sm" style="display: none; @media(max-width:900px){display:inline-flex;}">
+      ☰
+    </button>
+    <form action="/search" method="GET" class="topbar-search">
+      <span class="topbar-search-icon">🔍</span>
+      <input type="text" name="q" placeholder="Search lectures, topics, units..." value="<%= typeof query !== 'undefined' ? query : '' %>" required>
+    </form>
+  </div>
+
+  <div class="topbar-actions">
+    <a href="/syllabus/upload" class="btn btn-secondary btn-sm" title="Upload University Syllabus PDF">
+      <span>📄</span>
+      <span>Upload Syllabus</span>
+    </a>
+    <a href="/add-lecture" class="btn btn-primary btn-sm">
+      <span>➕</span>
+      <span>Add Lecture</span>
+    </a>
+    <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Light / Dark Theme">
+      <span id="themeIcon">🌙</span>
+    </button>
+  </div>
+</header>

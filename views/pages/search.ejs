@@ -1,0 +1,75 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Search Results</h1>
+        <p class="page-subtitle">Results for query: "<strong><%= query %></strong>"</p>
+      </div>
+    </div>
+
+    <!-- 1. Saved Lectures Matching Query -->
+    <div style="margin-bottom: 32px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px;">
+        Saved Study Packs (<%= searchResults.length %>)
+      </h2>
+
+      <% if (searchResults && searchResults.length > 0) { %>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+          <% searchResults.forEach(lec => { %>
+            <div class="card">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span class="unit-number-badge"><%= lec.subjectName %></span>
+                <span style="font-size: 0.78rem; color: var(--text-muted);"><%= new Date(lec.createdAt).toLocaleDateString() %></span>
+              </div>
+              <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 4px;"><%= lec.topicTitle %></h4>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;"><%= lec.lectureTitle %></p>
+              <a href="/library/<%= lec.id %>" class="btn btn-primary btn-sm">Open Study Pack</a>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="card" style="padding: 20px; color: var(--text-secondary); font-size: 0.9rem;">
+          No saved study packs found for "<%= query %>".
+        </div>
+      <% } %>
+    </div>
+
+    <!-- 2. Matching Syllabus Topics -->
+    <div>
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px;">
+        Matching Syllabus Topics (<%= matchingTopics.length %>)
+      </h2>
+
+      <% if (matchingTopics && matchingTopics.length > 0) { %>
+        <div class="card" style="padding: 12px;">
+          <ul class="topic-list">
+            <% matchingTopics.forEach(item => { %>
+              <li class="topic-item">
+                <div>
+                  <span class="unit-number-badge" style="font-size: 0.72rem; margin-right: 8px;"><%= item.subject.name %></span>
+                  <strong><%= item.topic %></strong>
+                  <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 8px;">(Unit <%= item.unit.number %>: <%= item.unit.title %>)</span>
+                </div>
+                <a href="/add-lecture?subject=<%= item.subject.id %>&unit=<%= item.unit.number %>&topic=<%= encodeURIComponent(item.topic) %>" class="btn btn-primary btn-sm">
+                  + Add Lecture
+                </a>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+      <% } else { %>
+        <div class="card" style="padding: 20px; color: var(--text-secondary); font-size: 0.9rem;">
+          No syllabus topics matched "<%= query %>".
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

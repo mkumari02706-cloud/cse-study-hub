@@ -1,0 +1,283 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <!-- Header Banner -->
+    <div class="card" style="margin-bottom: 24px; border-top: 5px solid <%= track.color %>;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+        <div style="display: flex; gap: 16px; align-items: center;">
+          <div class="subject-icon-box" style="width: 56px; height: 56px; font-size: 2rem; background: <%= track.gradient %>;">
+            <%= track.icon %>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+              <span class="core-badge" style="background: <%= track.color %>20; color: <%= track.color %>;"><%= track.badge %></span>
+              <span style="font-size: 0.85rem; color: var(--text-muted);">⏳ <%= track.duration %> Structured Curriculum</span>
+              <% if (typeof transcripts !== 'undefined' && transcripts.length > 0) { %>
+                <span class="unit-number-badge" style="background: #10b98120; color: #10b981; border: 1px solid #10b98140;">
+                  📚 <%= transcripts.length %> <%= transcripts.length === 1 ? 'Pack' : 'Packs' %> Transcribed
+                </span>
+              <% } %>
+            </div>
+            <h1 class="page-title" style="font-size: 1.8rem; margin: 0;"><%= track.title %></h1>
+            <p style="color: var(--text-secondary); font-size: 0.92rem; margin-top: 4px; max-width: 750px;">
+              <%= track.overview %>
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <a href="/transcription?category=<%= track.id %>&type=explore" class="btn btn-primary">
+            <span>🎙️ Transcribe Lecture</span>
+          </a>
+          <a href="/planner" class="btn btn-secondary">
+            <span>📅 Roadmap Planner</span>
+          </a>
+          <button type="button" class="btn btn-danger-outline" onclick="resetTrackProgress('<%= track.id %>')">
+            <span>🔄</span>
+            <span>Reset Progress</span>
+          </button>
+          <a href="/explore" class="btn btn-secondary">← All Roadmaps</a>
+        </div>
+      </div>
+
+      <!-- Track Progress Bar -->
+      <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border-subtle);">
+        <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 8px;">
+          <span style="font-weight: 600;">Track Completion</span>
+          <span id="trackProgressText" style="font-weight: 700; color: <%= track.color %>;">
+            <%= track.percentage %>% (<%= track.completedCount %> / <%= track.totalTopics %> Milestones Mastered)
+          </span>
+        </div>
+        <div class="progress-container" style="height: 10px; margin-bottom: 0;">
+          <div id="trackProgressBar" class="progress-bar-fill" style="width: <%= track.percentage %>%; background: <%= track.color %>;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transcribed Lectures & Academic Study Packs Section -->
+    <% if (typeof transcripts !== 'undefined' && transcripts.length > 0) { %>
+      <div class="card" style="margin-bottom: 24px; border-left: 4px solid var(--accent-primary);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h3 style="font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--accent-primary); display: flex; align-items: center; gap: 8px;">
+              <span>📚</span>
+              <span>Transcribed Lectures & Complete Academic Packs (<%= transcripts.length %>)</span>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 3px 0 0;">
+              Every transcribed video is organized into comprehensive 15-dimension study packs, topic notes, flashcards, MCQs, and exam notes.
+            </p>
+          </div>
+          <a href="/transcription?category=<%= track.id %>&type=explore" class="btn btn-primary btn-sm">
+            <span>+ Transcribe New Lecture</span>
+          </a>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
+          <% transcripts.forEach(t => { %>
+            <div style="padding: 14px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                  <span class="unit-number-badge" style="font-size: 0.7rem;"><%= t.topicTitle || 'Milestone' %></span>
+                  <span style="font-size: 0.72rem; color: var(--text-muted);"><%= t.sourceType %> • <%= t.wordCount %> words</span>
+                </div>
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 6px;">
+                  <a href="/transcription/<%= t._id %>" style="color: inherit; text-decoration: none;">
+                    <%= t.title %>
+                  </a>
+                </h4>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                  <%= (t.rawText || '').slice(0, 150) %>...
+                </p>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                <a href="/transcription/<%= t._id %>" class="btn btn-primary btn-sm" style="font-size: 0.78rem; padding: 4px 10px;">
+                  <span>📖 Open Complete Academic Pack</span>
+                </a>
+                <button type="button" class="btn btn-danger-outline btn-sm" onclick="deleteExploreTranscript('<%= t._id %>', '<%= (t.title || '').replace(/'/g, "\\'") %>')" style="font-size: 0.75rem; padding: 3px 8px;">
+                  🗑️
+                </button>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Multi-Stage Roadmap Timeline -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <% track.stages.forEach(stage => { %>
+        <div class="card">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="unit-number-badge" style="background: <%= track.color %>; color: #fff;">Stage <%= stage.stageNumber %></span>
+              <h2 style="font-size: 1.2rem; font-weight: 700; margin: 0;"><%= stage.title %></h2>
+            </div>
+            <span style="font-size: 0.82rem; color: var(--text-muted);"><%= stage.topics.length %> Milestones</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <% stage.topics.forEach(topic => { 
+              const isDone = track.completedTopics.includes(topic.id);
+              const mTrans = (typeof milestoneTranscripts !== 'undefined') ? (
+                (milestoneTranscripts[topic.id] && milestoneTranscripts[topic.id].length > 0) ?
+                  milestoneTranscripts[topic.id] :
+                  (milestoneTranscripts[topic.name.toLowerCase().trim()] || [])
+              ) : [];
+              const hasTrans = mTrans.length > 0;
+              const primaryTrans = hasTrans ? mTrans[0] : null;
+            %>
+              <div class="milestone-item <%= isDone ? 'completed-milestone' : '' %>" id="milestone-box-<%= topic.id %>" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 16px; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1;">
+                  <input type="checkbox" class="milestone-checkbox" data-track="<%= track.id %>" data-milestone="<%= topic.id %>" <%= isDone ? 'checked' : '' %> style="width: 18px; height: 18px; cursor: pointer; margin-top: 3px;">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                      <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0; <%= isDone ? 'text-decoration: line-through; opacity: 0.75;' : '' %>" id="milestone-title-<%= topic.id %>">
+                        <%= topic.name %>
+                      </h4>
+                      <% if (hasTrans) { %>
+                        <span class="unit-number-badge" style="background: #10b98120; color: #10b981; border: 1px solid #10b98140; font-size: 0.7rem; padding: 2px 7px;">
+                          ✅ Academic Pack Ready (<%= mTrans.length %>)
+                        </span>
+                      <% } %>
+                    </div>
+                    <p style="font-size: 0.84rem; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.4;">
+                      <%= topic.desc %>
+                    </p>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                  <% if (hasTrans && primaryTrans) { %>
+                    <a href="/transcription/<%= primaryTrans._id %>" class="btn btn-primary btn-sm" title="Open Complete 15-Section Academic Study Pack for this milestone" style="padding: 5px 10px; font-size: 0.78rem; white-space: nowrap; font-weight: 700;">
+                      📖 Open Academic Pack
+                    </a>
+                    <a href="/transcription?category=<%= track.id %>&topicId=<%= topic.id %>&topic=<%= encodeURIComponent(topic.name) %>&type=explore" class="btn btn-secondary btn-sm" title="Transcribe another lecture for this milestone" style="padding: 5px 8px; font-size: 0.75rem; white-space: nowrap;">
+                      🎙️ Transcribe
+                    </a>
+                  <% } else { %>
+                    <a href="/transcription?category=<%= track.id %>&topicId=<%= topic.id %>&topic=<%= encodeURIComponent(topic.name) %>&type=explore" class="btn btn-primary btn-sm" title="Transcribe YouTube or uploaded media for this milestone" style="padding: 5px 10px; font-size: 0.78rem; white-space: nowrap;">
+                      🎙️ Transcribe Lecture
+                    </a>
+                  <% } %>
+                  <a href="/assistant?topic=<%= encodeURIComponent(topic.name) %>" class="btn btn-secondary btn-sm" title="Ask AI Assistant about this milestone" style="padding: 5px 8px; font-size: 0.75rem; white-space: nowrap;">
+                    🤖 AI Assistant
+                  </a>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('.milestone-checkbox').forEach(box => {
+    box.addEventListener('change', async (e) => {
+      const trackId = e.target.dataset.track;
+      const milestoneId = e.target.dataset.milestone;
+
+      try {
+        const res = await fetch('/explore/api/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trackId, milestoneId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const itemBox = document.getElementById(`milestone-box-${milestoneId}`);
+          const itemTitle = document.getElementById(`milestone-title-${milestoneId}`);
+          if (data.result.isCompleted) {
+            itemBox.classList.add('completed-milestone');
+            itemTitle.style.textDecoration = 'line-through';
+            itemTitle.style.opacity = '0.75';
+          } else {
+            itemBox.classList.remove('completed-milestone');
+            itemTitle.style.textDecoration = 'none';
+            itemTitle.style.opacity = '1';
+          }
+
+          document.getElementById('trackProgressBar').style.width = `${data.result.trackPercentage}%`;
+          document.getElementById('trackProgressText').innerHTML = `${data.result.trackPercentage}% (${data.result.completedCount} Milestones Mastered)`;
+        }
+      } catch (err) {
+        if (window.showToast) window.showToast(`Failed to update progress: ${err.message}`, 'danger');
+        else alert(`Failed to update progress: ${err.message}`);
+      }
+    });
+  });
+
+  async function resetTrackProgress(trackId) {
+    const confirmed = await window.showConfirmDialog({
+      title: 'Reset Track Progress',
+      message: 'Are you sure you want to reset all completed milestones for this roadmap track? This cannot be undone.',
+      confirmText: 'Reset Progress',
+      confirmClass: 'btn-danger'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch('/explore/api/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (window.showToast) window.showToast('Roadmap progress reset successfully!', 'success');
+        document.querySelectorAll('.milestone-checkbox').forEach(box => {
+          box.checked = false;
+          const mId = box.dataset.milestone;
+          const itemBox = document.getElementById(`milestone-box-${mId}`);
+          const itemTitle = document.getElementById(`milestone-title-${mId}`);
+          if (itemBox) itemBox.classList.remove('completed-milestone');
+          if (itemTitle) {
+            itemTitle.style.textDecoration = 'none';
+            itemTitle.style.opacity = '1';
+          }
+        });
+        const bar = document.getElementById('trackProgressBar');
+        const txt = document.getElementById('trackProgressText');
+        if (bar) bar.style.width = '0%';
+        if (txt) txt.innerHTML = `0% (0 / <%= track.totalTopics %> Milestones Mastered)`;
+      } else {
+        if (window.showToast) window.showToast(data.error || 'Failed to reset progress', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      if (window.showToast) window.showToast('Network error while resetting progress', 'danger');
+    }
+  }
+
+  async function deleteExploreTranscript(id, title) {
+    const confirmed = await window.showConfirmDialog({
+      title: 'Delete Lecture Transcript',
+      message: `Are you sure you want to delete "${title}" and its generated Complete Academic Pack?`,
+      confirmText: 'Confirm Delete',
+      confirmClass: 'btn-danger'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/transcription/api/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        if (window.showToast) window.showToast('Transcript deleted successfully!', 'success');
+        setTimeout(() => window.location.reload(), 400);
+      } else {
+        if (window.showToast) window.showToast(data.error || 'Failed to delete transcript', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      if (window.showToast) window.showToast('Network error while deleting', 'danger');
+    }
+  }
+</script>
+
+<%- include('../partials/footer') %>

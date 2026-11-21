@@ -1,0 +1,109 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <span style="font-size: 1.5rem;">🧭</span>
+          <h1 class="page-title" style="margin: 0;">Explore & Learn: Engineering Roadmaps</h1>
+        </div>
+        <p class="page-subtitle">Structured, stage-by-stage learning pathways for the 8 most in-demand Computer Science domains.</p>
+      </div>
+
+      <div style="background: var(--bg-surface); padding: 10px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: right;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); display: block;">Career Mastery Progress</span>
+        <strong style="font-size: 1.2rem; color: var(--accent-primary);"><%= overallCompleted %> / <%= overallTotal %> Milestones (<%= overallPercent %>%)</strong>
+      </div>
+    </div>
+
+    <!-- Overall Progress Banner -->
+    <div class="card" style="margin-bottom: 28px; padding: 18px 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-weight: 600; font-size: 0.95rem;">Overall Industry & Technical Skills Coverage</span>
+        <span style="font-weight: 700; color: var(--accent-primary);"><%= overallPercent %>% Mastered</span>
+      </div>
+      <div class="progress-container" style="height: 10px; margin-bottom: 0;">
+        <div class="progress-bar-fill" style="width: <%= overallPercent %>%; background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981);"></div>
+      </div>
+    </div>
+
+    <!-- 8 Domain Tracks Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+      <% tracks.forEach(track => { %>
+        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 5px solid <%= track.color %>; transition: transform 0.2s ease, box-shadow 0.2s ease;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+              <div class="subject-icon-box" style="width: 48px; height: 48px; font-size: 1.6rem; background: <%= track.gradient %>;">
+                <%= track.icon %>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                <span class="core-badge" style="background: <%= track.color %>20; color: <%= track.color %>; border: 1px solid <%= track.color %>40;">
+                  <%= track.badge %>
+                </span>
+                <% if (typeof trackTranscriptCounts !== 'undefined' && trackTranscriptCounts[track.id]) { %>
+                  <span class="unit-number-badge" style="background: #10b98120; color: #10b981; font-size: 0.7rem; border: 1px solid #10b98140;">
+                    📚 <%= trackTranscriptCounts[track.id] %> <%= trackTranscriptCounts[track.id] === 1 ? 'Pack' : 'Packs' %>
+                  </span>
+                <% } else { %>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">
+                    ⏳ <%= track.duration %>
+                  </span>
+                <% } %>
+              </div>
+            </div>
+
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;">
+              <%= track.title %>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px;">
+              <%= track.overview %>
+            </p>
+
+            <!-- Career Target Roles -->
+            <div style="margin-bottom: 14px;">
+              <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Target Roles:</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                <% track.roles.forEach(role => { %>
+                  <span style="font-size: 0.72rem; padding: 2px 8px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-color); color: var(--text-secondary);">
+                    <%= role %>
+                  </span>
+                <% }) %>
+              </div>
+            </div>
+
+            <!-- Milestone Progress -->
+            <div style="margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+                <span style="color: var(--text-muted);">Roadmap Completion</span>
+                <span style="font-weight: 700; color: <%= track.color %>;"><%= track.percentage %>% (<%= track.completedCount %>/<%= track.totalTopics %>)</span>
+              </div>
+              <div class="progress-container" style="height: 6px; margin-bottom: 0;">
+                <div class="progress-bar-fill" style="width: <%= track.percentage %>%; background: <%= track.color %>;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <a href="/explore/<%= track.id %>" class="btn btn-primary" style="width: 100%; justify-content: center;">
+              <span>View Full Roadmap & Milestones →</span>
+            </a>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <a href="/transcription?category=<%= track.id %>&type=explore" class="btn btn-secondary btn-sm" style="justify-content: center; font-size: 0.78rem;">
+                <span>🎙️ Transcribe Lecture</span>
+              </a>
+              <a href="/planner" class="btn btn-secondary btn-sm" style="justify-content: center; font-size: 0.78rem;">
+                <span>📅 Track Planner</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>

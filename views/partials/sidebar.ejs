@@ -1,0 +1,85 @@
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <a href="/" class="brand">
+      <div class="brand-icon">🎓</div>
+      <span>CSE Study Hub</span>
+    </a>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">Main Menu</div>
+    <a href="/" class="nav-item <%= activeNav === 'dashboard' ? 'active' : '' %>">
+      <span class="nav-icon">📊</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="/syllabus/upload" class="nav-item <%= (activeNav === 'syllabus-upload' || activeNav === 'syllabus') ? 'active' : '' %>">
+      <span class="nav-icon">📄</span>
+      <span>My Syllabus</span>
+    </a>
+    <a href="/pyqs" class="nav-item <%= activeNav === 'pyqs' ? 'active' : '' %>">
+      <span class="nav-icon">📑</span>
+      <span>PYQ Analyzer</span>
+    </a>
+    <a href="/explore" class="nav-item <%= activeNav === 'explore' ? 'active' : '' %>">
+      <span class="nav-icon">🧭</span>
+      <span>Explore & Learn</span>
+    </a>
+    <a href="/transcription" class="nav-item <%= (activeNav === 'transcription' || activeNav === 'add-lecture') ? 'active' : '' %>">
+      <span class="nav-icon">🎙️</span>
+      <span>Lecture Transcription</span>
+    </a>
+    <a href="/notices" class="nav-item <%= activeNav === 'notices' ? 'active' : '' %>">
+      <span class="nav-icon">🏛️</span>
+      <span>University Notices</span>
+    </a>
+    <a href="/planner" class="nav-item <%= activeNav === 'planner' ? 'active' : '' %>">
+      <span class="nav-icon">📅</span>
+      <span>My Study Planner</span>
+    </a>
+    <a href="/practice" class="nav-item <%= activeNav === 'practice' ? 'active' : '' %>">
+      <span class="nav-icon">📝</span>
+      <span>Practice Center</span>
+    </a>
+    <a href="/assistant" class="nav-item <%= activeNav === 'assistant' ? 'active' : '' %>">
+      <span class="nav-icon">🤖</span>
+      <span>AI Study Assistant</span>
+    </a>
+    <a href="/progress" class="nav-item <%= activeNav === 'progress' ? 'active' : '' %>">
+      <span class="nav-icon">🎯</span>
+      <span>Progress Analytics</span>
+    </a>
+    <a href="/library" class="nav-item <%= activeNav === 'library' ? 'active' : '' %>" style="opacity: 0.85; font-size: 0.85rem;">
+      <span class="nav-icon">📚</span>
+      <span>Saved Notes Library</span>
+    </a>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; padding-right: 14px; margin-top: 14px;">
+      <div class="nav-section-title" style="margin-top: 0;">Curriculum Subjects</div>
+      <a href="/syllabus/upload" title="Upload Syllabus / Add Subject" style="font-size: 0.75rem; color: var(--accent-primary); font-weight: 600;">+ Add</a>
+    </div>
+
+    <% 
+      const sidebarSubs = (typeof navSubjects !== 'undefined' && navSubjects && navSubjects.length > 0) 
+        ? navSubjects 
+        : (typeof subjects !== 'undefined' ? subjects : []);
+    %>
+
+    <% sidebarSubs.forEach(sub => { %>
+      <a href="/subject/<%= sub.id %>" class="nav-item <%= activeNav === sub.id ? 'active' : '' %>" title="<%= sub.name %> (Semester <%= sub.semester || 3 %>)">
+        <span class="nav-icon"><%= sub.icon || '📚' %></span>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= sub.name %></span>
+        <span class="nav-badge">S<%= sub.semester || 3 %></span>
+      </a>
+    <% }) %>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="ai-status-indicator">
+      <span class="status-dot active"></span>
+      <span>AI-Powered Hub Active</span>
+    </div>
+    <div style="font-size: 0.72rem; color: #64748b; text-align: center;">
+      Semester 1-8 Academic Suite
+    </div>
+  </div>
+</aside>

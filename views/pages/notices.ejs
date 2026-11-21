@@ -1,0 +1,572 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <span style="font-size: 1.5rem;">🏛️</span>
+          <h1 class="page-title" style="margin: 0;">University Notices & Exam Timetables</h1>
+        </div>
+        <p class="page-subtitle">Upload circulars (PDF/Images/Text) to extract exam dates, subject timetables, practicals, and deadlines with Gemini AI.</p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" onclick="openNoticeModal()">
+          <span>📤</span>
+          <span>Upload University Notice</span>
+        </button>
+        <a href="/planner" class="btn btn-secondary">
+          <span>📅</span>
+          <span>Study Planner</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Exam Countdown Banner if exists -->
+    <% if (examCountdown) { %>
+      <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(79, 70, 229, 0.08) 100%); border-left: 5px solid #dc2626;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="background: var(--bg-surface); padding: 12px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); text-align: center;">
+              <span style="font-size: 2rem; font-weight: 800; color: #dc2626; display: block; line-height: 1;">
+                <%= examCountdown.daysLeft %>
+              </span>
+              <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Days Remaining</span>
+            </div>
+            <div>
+              <span class="core-badge" style="background: #ef444420; color: #dc2626; font-size: 0.72rem;">Official Timetable Extracted</span>
+              <h3 style="font-size: 1.15rem; font-weight: 800; margin: 2px 0 0;"><%= examCountdown.examName %></h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 3px 0 0;">
+                First Paper: <strong><%= examCountdown.date %></strong> • <strong><%= examCountdown.totalPapers %></strong> Exam Papers Scheduled
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="triggerPlannerSync('<%= examCountdown.date %>')">
+            <span>⚡ Sync & Generate Study Plan</span>
+          </button>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Semester Filters -->
+    <div class="semester-filter-container" style="margin-bottom: 20px;">
+      <div class="semester-filter-header">
+        <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
+          Filter by Semester:
+        </span>
+      </div>
+      <div class="semester-tabs-scroll">
+        <a href="/notices?semester=all" class="semester-tab <%= (selectedSemester === 'all') ? 'active' : '' %>">
+          <span>All Semesters</span>
+          <span class="tab-badge"><%= notices.length %></span>
+        </a>
+        <% for (let sem = 1; sem <= 8; sem++) { 
+          const count = notices.filter(n => n.semester === sem).length;
+        %>
+          <a href="/notices?semester=<%= sem %>" class="semester-tab <%= (String(selectedSemester) === String(sem)) ? 'active' : '' %>">
+            <span>Sem <%= sem %></span>
+            <% if (count > 0) { %>
+              <span class="tab-badge active-count"><%= count %></span>
+            <% } %>
+          </a>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- 2 Columns: Left (Notices List & Timetables), Right (Upcoming Deadlines & Practical Viva) -->
+    <div style="display: grid; grid-template-columns: 2fr 1.1fr; gap: 24px;">
+
+      <!-- Left Column: Notices Archive -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <% if (notices.length === 0) { %>
+          <div class="card" style="text-align: center; padding: 48px 24px;">
+            <div style="font-size: 3rem; margin-bottom: 12px;">📑</div>
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 6px;">No University Notices Added Yet</h3>
+            <p style="color: var(--text-secondary); max-width: 480px; margin: 0 auto 18px; font-size: 0.9rem;">
+              Upload your official university examination timetables, practical date sheets, assignment deadlines, or circulars to automatically generate tailored study plans.
+            </p>
+            <button type="button" class="btn btn-primary" onclick="openNoticeModal()">
+              <span>📤 Upload University Notice</span>
+            </button>
+          </div>
+        <% } else { %>
+          <% notices.forEach(notice => { 
+            const ext = notice.extractedData || {};
+            const timetable = ext.timetable || [];
+          %>
+            <div class="card" style="border-top: 4px solid var(--accent-primary);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 12px;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <span class="core-badge" style="background: var(--accent-light); color: var(--accent-primary);"><%= notice.noticeType %></span>
+                    <span class="nav-badge">Semester <%= notice.semester %></span>
+                    <span style="font-size: 0.78rem; color: var(--text-muted);"><%= notice.noticeDate %></span>
+                  </div>
+                  <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">
+                    <a href="/notices/<%= notice._id %>" style="color: inherit; text-decoration: none;"><%= notice.title %></a>
+                  </h3>
+                  <p style="font-size: 0.84rem; color: var(--text-secondary); margin: 4px 0 0;">
+                    🏛️ <strong><%= notice.universityName %></strong>
+                    <% if (ext.examinationDates && ext.examinationDates.start) { %>
+                      • Exam Window: <strong><%= ext.examinationDates.start %></strong> to <strong><%= ext.examinationDates.end || 'End' %></strong>
+                    <% } %>
+                  </p>
+                </div>
+
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <a href="/notices/<%= notice._id %>" class="btn btn-secondary btn-sm">View Details</a>
+                  <button type="button" class="btn btn-danger-outline btn-sm delete-notice-btn" onclick="deleteNotice('<%= notice._id %>', '<%= (notice.title || '').replace(/'/g, "\\'") %>')" title="Delete Notice">
+                    🗑️ Delete Notice
+                  </button>
+                </div>
+              </div>
+
+              <!-- Timetable Preview if available -->
+              <% if (timetable.length > 0) { %>
+                <div style="background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-color); overflow: hidden; margin-top: 10px;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                      <tr style="background: var(--bg-surface); border-bottom: 1px solid var(--border-color); text-align: left;">
+                        <th style="padding: 8px 12px;">Paper Code</th>
+                        <th style="padding: 8px 12px;">Subject Name</th>
+                        <th style="padding: 8px 12px;">Exam Date</th>
+                        <th style="padding: 8px 12px;">Time Slot</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% timetable.slice(0, 4).forEach(item => { %>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                          <td style="padding: 8px 12px;"><span class="unit-number-badge" style="font-size: 0.7rem;"><%= item.subjectCode || 'THEORY' %></span></td>
+                          <td style="padding: 8px 12px; font-weight: 600;"><%= item.subjectName %></td>
+                          <td style="padding: 8px 12px; color: #dc2626; font-weight: 700;"><%= item.date %></td>
+                          <td style="padding: 8px 12px; color: var(--text-muted);"><%= item.time || '10:00 AM' %></td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                  </table>
+                  <% if (timetable.length > 4) { %>
+                    <div style="padding: 6px 12px; background: var(--bg-surface); font-size: 0.78rem; text-align: right;">
+                      <a href="/notices/<%= notice._id %>" style="color: var(--accent-primary); font-weight: 600;">+ <%= timetable.length - 4 %> more papers in timetable →</a>
+                    </div>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+
+      <!-- Right Column: Academic Events, Practicals & Deadlines -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="card">
+          <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+            <span>🗓️</span>
+            <span>Upcoming Academic Deadlines</span>
+          </h3>
+
+          <% if (upcomingEvents.length === 0) { %>
+            <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.85rem;">
+              No confirmed upcoming academic events. Upload a notice to schedule your calendar.
+            </div>
+          <% } else { %>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <% upcomingEvents.slice(0, 8).forEach(ev => { %>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid <%= ev.eventType === 'Examination' ? '#dc2626' : (ev.eventType === 'Practical Exam' ? '#8b5cf6' : '#10b981') %>;">
+                  <div>
+                    <h5 style="margin: 0 0 2px; font-size: 0.88rem; font-weight: 700;"><%= ev.title %></h5>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);"><%= ev.time || ev.eventType %></span>
+                  </div>
+                  <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary);"><%= ev.date %></span>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+
+        <!-- Quick AI Planner Sync Card -->
+        <div class="card" style="background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border: 1px solid var(--accent-primary)30;">
+          <h4 style="font-size: 1rem; font-weight: 700; margin-bottom: 6px;">🤖 Integrated Study Planner</h4>
+          <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">
+            Every confirmed notice synchronizes with your semester syllabus, PYQ weightage rankings, and weak-topic drills.
+          </p>
+          <a href="/planner" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+            <span>Open Personal Study Planner →</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Upload Notice Modal -->
+<div id="noticeModal" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;">
+  <div class="card" style="width: 100%; max-width: 760px; max-height: 90vh; overflow-y: auto; background: var(--bg-surface); border-radius: var(--radius-md); padding: 24px;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
+      <h2 style="font-size: 1.25rem; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px;">
+        <span>🏛️</span>
+        <span>Upload University Notice</span>
+      </h2>
+      <button type="button" onclick="closeNoticeModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">✕</button>
+    </div>
+
+    <!-- Input Mode Tabs: File Upload, Paste Text, Manual Input -->
+    <div class="tabs-nav" style="margin-bottom: 18px;">
+      <button type="button" class="tab-btn active" id="tabNoticeFileBtn" onclick="switchNoticeTab('file')">📄 Upload PDF / Image</button>
+      <button type="button" class="tab-btn" id="tabNoticeTextBtn" onclick="switchNoticeTab('text')">📝 Paste Circular Text</button>
+      <button type="button" class="tab-btn" id="tabNoticeManualBtn" onclick="switchNoticeTab('manual')">✍️ Enter Details Manually</button>
+    </div>
+
+    <!-- Mode 1: File Upload Form -->
+    <div id="noticeFileTab">
+      <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 32px 20px; text-align: center; background: var(--bg-primary); margin-bottom: 16px;">
+        <div style="font-size: 2.4rem; margin-bottom: 8px;">📁</div>
+        <p style="font-weight: 600; margin-bottom: 4px;">Select University Notice (PDF, JPG, PNG, WEBP)</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Max file size: 25MB • Scanned & Multimodal OCR supported</p>
+        <input type="file" id="noticeFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" style="display: inline-block;">
+      </div>
+    </div>
+
+    <!-- Mode 2: Paste Text Form -->
+    <div id="noticeTextTab" class="hidden">
+      <div class="form-group">
+        <label class="form-label" for="noticeTextArea">Paste University Notice / Timetable Text</label>
+        <textarea id="noticeTextArea" class="form-control" rows="8" placeholder="Paste circular header, examination dates, subject codes, and deadlines..."></textarea>
+      </div>
+    </div>
+
+    <!-- Mode 3: Manual Entry Form -->
+    <div id="noticeManualTab" class="hidden">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+        <div class="form-group">
+          <label class="form-label">University Name *</label>
+          <input type="text" id="manualUniName" class="form-control" placeholder="e.g. State Technical University">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Semester *</label>
+          <select id="manualSemester" class="form-control">
+            <% for(let s=1; s<=8; s++) { %>
+              <option value="<%= s %>" <%= s===3 ? 'selected' : '' %>>Semester <%= s %></option>
+            <% } %>
+          </select>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+        <div class="form-group">
+          <label class="form-label">Notice Type *</label>
+          <select id="manualNoticeType" class="form-control">
+            <option value="Exam Timetable">Exam Timetable</option>
+            <option value="Assignment Deadline">Assignment Deadline</option>
+            <option value="Practical Exam">Practical Exam</option>
+            <option value="Internal Exam">Internal Exam</option>
+            <option value="Holiday">Holiday</option>
+            <option value="Registration">Registration</option>
+            <option value="Result">Result</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notice Title *</label>
+          <input type="text" id="manualTitle" class="form-control" placeholder="e.g. End-Semester Examination Schedule 2026">
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="form-group">
+          <label class="form-label">Exam Start Date</label>
+          <input type="date" id="manualExamStart" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Exam End Date</label>
+          <input type="date" id="manualExamEnd" class="form-control">
+        </div>
+      </div>
+    </div>
+
+    <!-- Extract Action Button & Loading Status -->
+    <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px;">
+      <button type="button" class="btn btn-secondary" onclick="closeNoticeModal()">Cancel</button>
+      <button type="button" id="extractNoticeBtn" class="btn btn-primary" onclick="extractNotice()">
+        <span>✨ Extract with Gemini AI</span>
+      </button>
+    </div>
+
+    <div id="noticeExtractStatus" class="alert alert-info hidden" style="margin-top: 14px;"></div>
+
+    <!-- Structured Preview Section (Shown after AI extraction) -->
+    <div id="noticePreviewSection" class="hidden" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+      <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; color: var(--accent-primary);">
+        📋 Step 2: Confirm & Correct Extracted Timetable
+      </h3>
+      <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
+        Review the recognized information below. You can edit any field before confirming.
+      </p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div class="form-group">
+          <label class="form-label">Recognized University</label>
+          <input type="text" id="prevUniName" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Recognized Semester</label>
+          <input type="number" id="prevSemester" class="form-control" min="1" max="8">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div class="form-group">
+          <label class="form-label">Notice Title</label>
+          <input type="text" id="prevTitle" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Exam Start Date</label>
+          <input type="date" id="prevExamStart" class="form-control">
+        </div>
+      </div>
+
+      <!-- Timetable JSON / Table Editor -->
+      <div class="form-group">
+        <label class="form-label">Recognized Timetable Papers (Editable JSON / List)</label>
+        <textarea id="prevTimetableJson" class="form-control" rows="6" style="font-family: monospace; font-size: 0.8rem;"></textarea>
+      </div>
+
+      <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.86rem; cursor: pointer;">
+          <input type="checkbox" id="syncPlannerCheckbox" checked style="width: 17px; height: 17px;">
+          <strong>Automatically generate personal study plan from this timetable</strong>
+        </label>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary" onclick="discardNoticePreview()">Cancel / Discard</button>
+          <button type="button" id="confirmNoticeBtn" class="btn btn-primary" onclick="confirmNotice()">
+            <span>✅ Confirm & Save to Database</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let currentActiveTab = 'file';
+  let currentExtractedData = null;
+
+  function switchNoticeTab(tab) {
+    currentActiveTab = tab;
+    document.getElementById('noticeFileTab').classList.toggle('hidden', tab !== 'file');
+    document.getElementById('noticeTextTab').classList.toggle('hidden', tab !== 'text');
+    document.getElementById('noticeManualTab').classList.toggle('hidden', tab !== 'manual');
+
+    document.getElementById('tabNoticeFileBtn').classList.toggle('active', tab === 'file');
+    document.getElementById('tabNoticeTextBtn').classList.toggle('active', tab === 'text');
+    document.getElementById('tabNoticeManualBtn').classList.toggle('active', tab === 'manual');
+  }
+
+  function openNoticeModal() {
+    document.getElementById('noticeModal').classList.remove('hidden');
+  }
+
+  function closeNoticeModal() {
+    document.getElementById('noticeModal').classList.add('hidden');
+    discardNoticePreview();
+  }
+
+  function discardNoticePreview() {
+    currentExtractedData = null;
+    const prevSection = document.getElementById('noticePreviewSection');
+    if (prevSection) prevSection.classList.add('hidden');
+    const statusBox = document.getElementById('noticeExtractStatus');
+    if (statusBox) {
+      statusBox.classList.add('hidden');
+      statusBox.innerHTML = '';
+    }
+    const fileInput = document.getElementById('noticeFileInput');
+    if (fileInput) fileInput.value = '';
+    const textArea = document.getElementById('noticeTextArea');
+    if (textArea) textArea.value = '';
+    const extractBtn = document.getElementById('extractNoticeBtn');
+    if (extractBtn) extractBtn.disabled = false;
+  }
+
+  async function extractNotice() {
+    const btn = document.getElementById('extractNoticeBtn');
+    const statusBox = document.getElementById('noticeExtractStatus');
+    statusBox.className = 'alert alert-info';
+    statusBox.innerHTML = '⏳ Extracting timetable and academic dates with Gemini AI...';
+    statusBox.classList.remove('hidden');
+    btn.disabled = true;
+
+    try {
+      let res;
+      if (currentActiveTab === 'file') {
+        const fileInput = document.getElementById('noticeFileInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+          throw new Error('Please select a notice PDF or image file first.');
+        }
+        const formData = new FormData();
+        formData.append('noticeFile', fileInput.files[0]);
+        res = await fetch('/notices/api/extract', {
+          method: 'POST',
+          body: formData
+        });
+      } else if (currentActiveTab === 'text') {
+        const text = document.getElementById('noticeTextArea').value.trim();
+        if (!text) throw new Error('Please paste notice text first.');
+        res = await fetch('/notices/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ noticeText: text })
+        });
+      } else {
+        // Manual input
+        const manualData = {
+          universityName: document.getElementById('manualUniName').value,
+          semester: document.getElementById('manualSemester').value,
+          noticeType: document.getElementById('manualNoticeType').value,
+          title: document.getElementById('manualTitle').value,
+          examStart: document.getElementById('manualExamStart').value,
+          examEnd: document.getElementById('manualExamEnd').value
+        };
+        res = await fetch('/notices/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ manualData })
+        });
+      }
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to extract notice.');
+
+      currentExtractedData = data.extracted;
+      statusBox.className = 'alert alert-success';
+      statusBox.innerHTML = `✅ Successfully recognized ${data.extracted.noticeType || 'Notice'}! Please review below.`;
+
+      // Fill preview form
+      document.getElementById('prevUniName').value = data.extracted.universityName || 'University';
+      document.getElementById('prevSemester').value = data.extracted.semester || 3;
+      document.getElementById('prevTitle').value = data.extracted.title || 'University Academic Circular';
+      document.getElementById('prevExamStart').value = (data.extracted.examinationDates && data.extracted.examinationDates.start) ? data.extracted.examinationDates.start : '';
+      document.getElementById('prevTimetableJson').value = JSON.stringify(data.extracted.timetable || [], null, 2);
+
+      document.getElementById('noticePreviewSection').classList.remove('hidden');
+    } catch (err) {
+      statusBox.className = 'alert alert-danger';
+      statusBox.innerHTML = `⚠️ ${err.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function confirmNotice() {
+    if (!currentExtractedData) return;
+    const btn = document.getElementById('confirmNoticeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '💾 Saving Confirmed Timetable...';
+
+    try {
+      let parsedTimetable = [];
+      try {
+        parsedTimetable = JSON.parse(document.getElementById('prevTimetableJson').value);
+      } catch (e) {
+        alert('Invalid JSON in timetable box. Please correct format.');
+        btn.disabled = false;
+        btn.innerHTML = '✅ Confirm & Save to Database';
+        return;
+      }
+
+      const payload = {
+        title: document.getElementById('prevTitle').value,
+        universityName: document.getElementById('prevUniName').value,
+        semester: parseInt(document.getElementById('prevSemester').value, 10),
+        noticeType: currentExtractedData.noticeType || 'Exam Timetable',
+        noticeDate: currentExtractedData.noticeDate || new Date().toISOString().slice(0, 10),
+        examinationDates: {
+          start: document.getElementById('prevExamStart').value,
+          end: (currentExtractedData.examinationDates && currentExtractedData.examinationDates.end) || ''
+        },
+        timetable: parsedTimetable,
+        practicalDates: currentExtractedData.practicalDates || [],
+        internalDates: currentExtractedData.internalDates || [],
+        assignmentDeadlines: currentExtractedData.assignmentDeadlines || [],
+        holidays: currentExtractedData.holidays || [],
+        syncWithPlanner: document.getElementById('syncPlannerCheckbox').checked
+      };
+
+      const res = await fetch('/notices/api/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Notice confirmed and saved! Generated ${data.eventsCount} academic calendar event(s).`);
+        window.location.reload();
+      } else {
+        alert(`Save Error: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '✅ Confirm & Save to Database';
+    }
+  }
+
+  async function deleteNotice(id, title = 'this notice') {
+    const confirmed = await window.showConfirmDialog({
+      title: 'Delete University Notice',
+      message: `Are you sure you want to delete "${title}"? This will permanently remove the notice and its timetable events.`,
+      confirmText: 'Confirm Delete'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/notices/api/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        window.showToast('Notice and timetable events deleted successfully.', 'success');
+        setTimeout(() => window.location.reload(), 450);
+      } else {
+        window.showToast(`Delete failed: ${data.error}`, 'error');
+      }
+    } catch (err) {
+      window.showToast(`Delete error: ${err.message}`, 'error');
+    }
+  }
+
+  // Modal dismiss on backdrop click and Escape
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeNoticeModal();
+  });
+  const noticeModalEl = document.getElementById('noticeModal');
+  if (noticeModalEl) {
+    noticeModalEl.addEventListener('click', (e) => {
+      if (e.target === noticeModalEl) closeNoticeModal();
+    });
+  }
+
+  async function triggerPlannerSync(examDate) {
+    if (!confirm(`Generate personal study plan targeting exam on ${examDate}?`)) return;
+    try {
+      const res = await fetch('/planner/api/plan/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ semester: 3, targetExamDate: examDate, dailyAvailableHours: 3 })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Personalized Study Plan generated with ${data.totalTasksScheduled} tasks over ${data.preparationDays} preparation days!`);
+        window.location.href = '/planner';
+      } else {
+        alert(`Planner Error: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    }
+  }
+</script>
+
+<%- include('../partials/footer') %>

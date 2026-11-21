@@ -1,0 +1,907 @@
+[
+  {
+    "id": "105301_digital_electronics",
+    "slug": "105301_digital_electronics",
+    "semester": 3,
+    "isCore": false,
+    "name": "Digital Electronics",
+    "code": "105301",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105301_digital_electronics",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105301_digital_electronics",
+    "hasCode": true,
+    "description": "Digital Electronics (105301) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Fundamentals of Digital Systems and logic families",
+        "topics": [
+          "Digital signals",
+          "digital circuits",
+          "AND, OR, NOT, NAND, NOR and Exclusive-OR operations",
+          "Boolean algebra",
+          "examples of IC gates",
+          "number systems-binary, signed binary, octal hexadecimal number",
+          "binary arithmetic",
+          "one's and two's complements arithmetic",
+          "codes",
+          "error detecting and correcting codes",
+          "characteristics of digital lCs",
+          "digital logic families",
+          "TTL, Schottky TTL and CMOS logic",
+          "interfacing CMOS and TTL",
+          "Tri - state logic"
+        ]
+      },
+      {
+        "id": "unit_2",
+        "number": 2,
+        "title": "Combinational Digital Circuits",
+        "topics": [
+          "Standard representation for logic functions K-map representation",
+          "simplification of logic functions using K-map",
+          "minimization of logical functions",
+          "Don't care conditions",
+          "Multiplexer",
+          "DeMultiplexer/Decoders",
+          "Adders",
+          "Subtractors",
+          "BCD arithmetic",
+          "carry look ahead adder",
+          "serial adder",
+          "ALU",
+          "elementary ALU design",
+          "popular MSI chips",
+          "digital comparator",
+          "parity checker/generator",
+          "code converters",
+          "priority encoders",
+          "decoders/drivers for display devices",
+          "Q-M method of function realization"
+        ]
+      },
+      {
+        "id": "unit_3",
+        "number": 3,
+        "title": "Sequential circuits and systems",
+        "topics": [
+          "A 1-bit memory",
+          "the circuit properties of Bistable latch",
+          "the clocked SR flip flop",
+          "J- K-T and D types flip flops",
+          "applications of flip flops",
+          "shift registers",
+          "applications of shift registers",
+          "serial to parallel converter",
+          "parallel to serial converter",
+          "ring counter",
+          "sequence generator",
+          "ripple (Asynchronous) counters",
+          "synchronous counters",
+          "counters design using flip flops",
+          "special counter IC's",
+          "asynchronous sequential counters",
+          "applications of counters"
+        ]
+      },
+      {
+        "id": "unit_4",
+        "number": 4,
+        "title": "A/D and D/A Converters",
+        "topics": [
+          "Digital to analog converters: weighted resistor/converter",
+          "R- 2RLadder D/A converter",
+          "specifications for D/A converters",
+          "examples of D/A converter lCs",
+          "sample and hold circuit",
+          "analog to digital converters: quantization and encoding",
+          "parallel comparator A/D converter",
+          "successive approximation A/D converter",
+          "counting A/D converter",
+          "dual slope A/D converter",
+          "A/D converter using Voltage to frequency and voltage to time conversion",
+          "specifications of A/D converters",
+          "example of A/D converter ICs"
+        ]
+      },
+      {
+        "id": "unit_5",
+        "number": 5,
+        "title": "Semiconductor memories",
+        "topics": [
+          "Memory organization and operation",
+          "expanding memory size",
+          "classification and characteristics of memories",
+          "sequential memory",
+          "read only memory (ROM)",
+          "read and write memory(RAM)",
+          "content addressable memory (CAM)",
+          "charge de coupled device memory (CCD)",
+          "commonly used memory chips",
+          "ROM as a PLD"
+        ]
+      },
+      {
+        "id": "unit_6",
+        "number": 6,
+        "title": "Programmable logic devices",
+        "topics": [
+          "Programmable logic array",
+          "Programmable array logic",
+          "complex Programmable logic devices (CPLDS)",
+          "Field Programmable Gate Array (FPGA)"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.880Z"
+  },
+  {
+    "id": "105302_data_structure_algorithms",
+    "slug": "105302_data_structure_algorithms",
+    "semester": 3,
+    "isCore": false,
+    "name": "Data Structure & Algorithms",
+    "code": "105302",
+    "icon": "🗄️",
+    "badge": "Database Systems",
+    "color": "#0284c7",
+    "gradient": "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+    "folder": "uploads/subjects/105302_data_structure_algorithms",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105302_data_structure_algorithms",
+    "hasCode": true,
+    "description": "Data Structure & Algorithms (105302) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Introduction",
+        "topics": [
+          "Basic Terminologies: Elementary Data Organizations",
+          "Data Structure Operations: insertion, deletion, traversal etc.",
+          "Analysis of an Algorithm",
+          "Asymptotic Notations",
+          "Time-Space trade off"
+        ]
+      },
+      {
+        "id": "unit_2",
+        "number": 2,
+        "title": "Stacks and Queues",
+        "topics": [
+          "ADT Stack and its operations: Algorithms and their complexity analysis",
+          "Applications of Stacks: Expression Conversion and evaluation – corresponding algorithms and complexity analysis",
+          "ADT queue",
+          "Types of Queue: Simple Queue, Circular Queue, Priority Queue",
+          "Operations on each Type of Queues: Algorithms and their analysis"
+        ]
+      },
+      {
+        "id": "unit_3",
+        "number": 3,
+        "title": "Linked Lists",
+        "topics": [
+          "Singly linked lists: Representation in memory",
+          "Algorithms of several operations: Traversing, Searching, Insertion into, Deletion from linked list",
+          "Linked representation of Stack and Queue",
+          "Header nodes",
+          "doubly linked list: operations on it and algorithmic analysis",
+          "Circular Linked Lists: all operations their algorithms and the complexity analysis"
+        ]
+      },
+      {
+        "id": "unit_4",
+        "number": 4,
+        "title": "Searching, Sorting and Hashing",
+        "topics": [
+          "Linear Search and Binary Search Techniques and their complexity analysis",
+          "Objective and properties of different sorting algorithms: Selection Sort, Bubble Sort, Insertion Sort, Quick Sort, Merge Sort, Heap Sort",
+          "Performance and Comparison among all the methods",
+          "Hashing"
+        ]
+      },
+      {
+        "id": "unit_5",
+        "number": 5,
+        "title": "Trees",
+        "topics": [
+          "Basic Tree Terminologies",
+          "Different types of Trees: Binary Tree, Threaded Binary Tree, Binary Search Tree, AVL Tree",
+          "Tree operations on each of the trees and their algorithms with complexity analysis",
+          "Applications of Binary Trees",
+          "B Tree, B+ Tree: definitions, algorithms and analysis"
+        ]
+      },
+      {
+        "id": "unit_6",
+        "number": 6,
+        "title": "Graph",
+        "topics": [
+          "Basic Terminologies and Representations",
+          "Graph search and traversal algorithms and complexity analysis"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.883Z"
+  },
+  {
+    "id": "105303_object_oriented_programming_us",
+    "slug": "105303_object_oriented_programming_us",
+    "semester": 3,
+    "isCore": false,
+    "name": "Object Oriented Programming Using Java",
+    "code": "105303",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105303_object_oriented_programming_us",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105303_object_oriented_programming_us",
+    "hasCode": true,
+    "description": "Object Oriented Programming Using Java (105303) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "OOP Concepts and Java Programming",
+        "topics": [
+          "Introduction to Java: History of java, Java buzzwords, basics of Java programming",
+          "Difference between procedural and object-oriented programming paradigm",
+          "Need for OOPs paradigm",
+          "OOPs features, advantages of oops",
+          "JDK, JRE and JVM",
+          "Data types, variables, operators",
+          "Control structures including selection, looping",
+          "Java methods",
+          "Compilation, and execution of simple program"
+        ]
+      },
+      {
+        "id": "unit_2",
+        "number": 2,
+        "title": "Objects, Classes, and Constructors in Java",
+        "topics": [
+          "Basics of objects and classes in java",
+          "Declaring objects, new keyword",
+          "Defining and calling methods in class",
+          "Array of Objects",
+          "Constructors, Different types of Constructors",
+          "Overloading Methods and Constructors",
+          "Method Binding, Overriding and Exceptions",
+          "Passing Object as parameters, returning object",
+          "Static members",
+          "Concept of Access Modifiers (Public, Private, Protected, Default)",
+          "this Keyword",
+          "Garbage Collection, finalize() method",
+          "Nested and Inner Classes",
+          "Exploring string class"
+        ]
+      },
+      {
+        "id": "unit_3",
+        "number": 3,
+        "title": "Inheritance, Interfaces and Packages",
+        "topics": [
+          "Inheritance hierarchies, Benefits of Inheritance, super and subclasses",
+          "Member access rules, super keyword",
+          "Preventing inheritance: final classes and methods",
+          "The object class and its methods",
+          "Polymorphism: Dynamic binding, method overriding, abstract classes and methods",
+          "Interface: Interfaces vs Abstract classes, defining an interface, implement interfaces",
+          "Accessing implementations through interface references, extending interface",
+          "Packages: Defining, creating and accessing a package, understanding CLASSPATH, importing packages"
+        ]
+      },
+      {
+        "id": "unit_4",
+        "number": 4,
+        "title": "Exception Handling",
+        "topics": [
+          "Introduction to error and exception, Error vs Exception",
+          "Concepts of Exception Handling, Benefits of exception handling",
+          "Exception types, exception hierarchy, checked and unchecked exceptions",
+          "Usage of try, catch, throw, throws and finally",
+          "Multiple catch clauses, nested try statements, re throwing exceptions",
+          "Creating own exception sub classes"
+        ]
+      },
+      {
+        "id": "unit_5",
+        "number": 5,
+        "title": "Introduction to Multithreading",
+        "topics": [
+          "Differences between multiple processes and multiple threads",
+          "Thread states",
+          "Creating threads",
+          "Interrupting threads",
+          "Thread priorities",
+          "Synchronizing threads",
+          "Inter thread communication"
+        ]
+      },
+      {
+        "id": "unit_6",
+        "number": 6,
+        "title": "Files, The Collections Framework and Connecting To Database",
+        "topics": [
+          "Files: Streams, byte streams, character stream, text input/output, binary input/output",
+          "Random access file operations, file management using file class",
+          "The Collections Framework (java.util): Collections overview, Hierarchy of Collection Framework, Collection Interfaces",
+          "The Collection classes- Array List, Linked List, Hash Set, Tree Set, Priority Queue, Array Deque",
+          "Connecting to Database: Connecting to a database, querying a database and processing the results, updating data with JDBC"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.886Z"
+  },
+  {
+    "id": "105304_discrete_mathematics_and_graph",
+    "slug": "105304_discrete_mathematics_and_graph",
+    "semester": 3,
+    "isCore": false,
+    "name": "Discrete Mathematics and Graph Theory",
+    "code": "105304",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105304_discrete_mathematics_and_graph",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105304_discrete_mathematics_and_graph",
+    "hasCode": true,
+    "description": "Discrete Mathematics and Graph Theory (105304) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Sets, Relation and Function",
+        "topics": [
+          "Operations and Laws of Sets",
+          "Cartesian Products",
+          "Binary Relation",
+          "Partial Ordering Relation",
+          "Equivalence Relation",
+          "Image of a Set",
+          "Sum and Product of Functions",
+          "Bijective functions",
+          "Inverse and Composite Function",
+          "Size of a Set",
+          "Finite and infinite Sets",
+          "Countable and uncountable Sets",
+          "Cantor's diagonal argument and The Power Set theorem",
+          "Schroeder-Bernstein theorem"
+        ]
+      },
+      {
+        "id": "unit_2",
+        "number": 2,
+        "title": "Principles of Mathematical Induction",
+        "topics": [
+          "The Well-Ordering Principle",
+          "Recursive definition",
+          "The Division algorithm: Prime Numbers",
+          "The Greatest Common Divisor: Euclidean Algorithm",
+          "The Fundamental Theorem of Arithmetic",
+          "Basic counting techniques-inclusion and exclusion",
+          "pigeon-hole principle",
+          "permutation and combination"
+        ]
+      },
+      {
+        "id": "unit_3",
+        "number": 3,
+        "title": "Propositional Logic",
+        "topics": [
+          "Syntax, Semantics, Validity and Satisfiability",
+          "Basic Connectives and Truth Tables",
+          "Logical Equivalence: The Laws of Logic",
+          "Logical Implication",
+          "Rules of Inference",
+          "The use of Quantifiers"
+        ]
+      },
+      {
+        "id": "unit_4",
+        "number": 4,
+        "title": "Proof Techniques",
+        "topics": [
+          "Some Terminology",
+          "Proof Methods and Strategies",
+          "Forward Proof",
+          "Proof by Contradiction",
+          "Proof by Contraposition",
+          "Proof of Necessity and Sufficiency"
+        ]
+      },
+      {
+        "id": "unit_5",
+        "number": 5,
+        "title": "Algebraic Structures and Morphism",
+        "topics": [
+          "Algebraic Structures with one Binary Operation",
+          "Semi Groups, Monoids, Groups",
+          "Congruence Relation and Quotient Structures",
+          "Free and Cyclic Monoids and Groups",
+          "Permutation Groups",
+          "Substructures, Normal Subgroups",
+          "Algebraic Structures with two Binary Operation",
+          "Rings, Integral Domain and Fields",
+          "Boolean Algebra and Boolean Ring",
+          "Identities of Boolean Algebra",
+          "Duality",
+          "Representation of Boolean Function",
+          "Disjunctive and Conjunctive Normal Form"
+        ]
+      },
+      {
+        "id": "unit_6",
+        "number": 6,
+        "title": "Graphs and Trees",
+        "topics": [
+          "Graphs and their properties",
+          "Degree, Connectivity, Path, Cycle",
+          "Sub Graph, Isomorphism",
+          "Eulerian and Hamiltonian Walks",
+          "Graph Coloring",
+          "Coloring maps and Planar Graphs",
+          "Coloring Vertices, Coloring Edges",
+          "List Coloring",
+          "Perfect Graph, definition properties and Example",
+          "Rooted trees, trees and sorting",
+          "Weighted trees and prefix codes",
+          "Bi-connected component and Articulation Points",
+          "Shortest distances"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.887Z"
+  },
+  {
+    "id": "105305_operating_systems",
+    "slug": "105305_operating_systems",
+    "semester": 3,
+    "isCore": false,
+    "name": "Operating Systems",
+    "code": "105305",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105305_operating_systems",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105305_operating_systems",
+    "hasCode": true,
+    "description": "Operating Systems (105305) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Introduction",
+        "topics": [
+          "Concept of Operating Systems",
+          "Generations of Operating systems",
+          "Types of Operating Systems",
+          "OS Services",
+          "System Calls",
+          "Structure of an OS- Layered, Monolithic, Microkernel Operating Systems",
+          "Concept of Virtual Machine",
+          "Case study on UNIX and WINDOWS Operating System"
+        ]
+      },
+      {
+        "id": "unit_2",
+        "number": 2,
+        "title": "Processes and Process Scheduling",
+        "topics": [
+          "Definition, Process Relationship",
+          "Different states of a Process, Process State transitions",
+          "Process Control Block (PCB)",
+          "Context switching",
+          "Thread: Definition, Various states, Benefits of threads, Types of threads, Concept of multithreads",
+          "Process Scheduling: Foundation and Scheduling objectives, Types of Schedulers",
+          "Scheduling criteria: CPU utilization, Throughput, Turnaround Time, Waiting Time, Response Time",
+          "Scheduling algorithms: Pre-emptive and Non pre-emptive, FCFS, SJF, RR",
+          "Multiprocessor scheduling",
+          "Real Time scheduling: RM and EDF"
+        ]
+      },
+      {
+        "id": "unit_3",
+        "number": 3,
+        "title": "Inter-process Communication",
+        "topics": [
+          "Critical Section, Race Conditions, Mutual Exclusion",
+          "Hardware Solution, Strict Alternation, Peterson's Solution",
+          "The Producer - Consumer Problem",
+          "Semaphores, Event Counters, Monitors, Message Passing, Shared Memory",
+          "Classical IPC Problems: Reader's & Writer Problem, Dinning Philosopher Problem etc."
+        ]
+      },
+      {
+        "id": "unit_4",
+        "number": 4,
+        "title": "Deadlocks",
+        "topics": [
+          "Definition",
+          "Necessary and sufficient conditions for Deadlock",
+          "Deadlock Prevention",
+          "Deadlock Avoidance: Banker's algorithm",
+          "Deadlock detection and Recovery"
+        ]
+      },
+      {
+        "id": "unit_5",
+        "number": 5,
+        "title": "Memory Management and Virtual Memory",
+        "topics": [
+          "Basic concept, Logical and Physical address map",
+          "Memory allocation: Contiguous Memory allocation – Fixed and variable partition–Internal and External fragmentation and Compaction",
+          "Paging and Segmentation: Principle of operation – Page allocation – Hardware support for paging, Protection and sharing, Advantages and Disadvantages of paging and segmentation",
+          "Virtual Memory: Basics of Virtual Memory – Hardware and control structures – Locality of reference, Page fault , Working Set , Dirty page/Dirty bit – Demand paging",
+          "Page Replacement algorithms: Optimal, First in First Out (FIFO), Second Chance (SC), Not recently used (NRU) and Least Recently used (LRU)"
+        ]
+      },
+      {
+        "id": "unit_6",
+        "number": 6,
+        "title": "File Management, Disk Management and I/O Hardware",
+        "topics": [
+          "Concept of File, Access methods, File types, File operation, Directory structure, File System structure",
+          "Allocation methods (contiguous, linked, indexed), Free- space management (bit vector, linked list, grouping)",
+          "Directory implementation (linear list, hash table), efficiency and performance",
+          "Disk Management: Disk structure, Disk scheduling - FCFS, SSTF, SCAN, C-SCAN, Disk reliability, Disk formatting, Boot-block, Bad blocks",
+          "I/O Hardware: I/O devices, Device controllers, Direct memory access",
+          "Principles of I/O Software: Goals of Interrupt handlers, Device drivers, Device independent I/O software, Secondary-Storage Structure"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.888Z"
+  },
+  {
+    "id": "105306_universal_human_values",
+    "slug": "105306_universal_human_values",
+    "semester": 3,
+    "isCore": false,
+    "name": "Universal Human Values",
+    "code": "105306",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105306_universal_human_values",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105306_universal_human_values",
+    "hasCode": true,
+    "description": "Universal Human Values (105306) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Introduction to Value Education",
+        "topics": [
+          "Right Understanding, Relationship and Physical Facility (Holistic Development and the Role of Education)",
+          "Understanding Value Education Sharing about Oneself",
+          "Self-exploration as the Process for Value Education",
+          "Continuous Happiness and Prosperity – the Basic Human Aspirations",
+          "Exploring Human Consciousness",
+          "Happiness and Prosperity – Current Scenario",
+          "Method to Fulfil the Basic Human Aspirations"
+        ]
+      },
+      {
+        "id": "unit_2",
+        "number": 2,
+        "title": "Harmony in the Human Being",
+        "topics": [
+          "Understanding Human being as the Co-existence of the Self and the Body",
+          "Distinguishing between the Needs of the Self and the Body",
+          "The Body as an Instrument of the Self",
+          "Understanding Harmony in the Self",
+          "Harmony of the Self with the Body",
+          "Programme to ensure self-regulation and Health"
+        ]
+      },
+      {
+        "id": "unit_3",
+        "number": 3,
+        "title": "Harmony in the Family and Society",
+        "topics": [
+          "Harmony in the Family – the Basic Unit of Human Interaction",
+          "Trust – the Foundational Value in Relationship",
+          "Respect – as the Right Evaluation",
+          "Other Feelings",
+          "Justice in Human-to-Human Relationship",
+          "Understanding Harmony in the Society",
+          "Vision for the Universal Human Order"
+        ]
+      },
+      {
+        "id": "unit_4",
+        "number": 4,
+        "title": "Harmony in the Nature/Existence",
+        "topics": [
+          "Understanding Harmony in the Nature",
+          "Interconnectedness, self-regulation and Mutual Fulfilment among the Four Orders of Nature",
+          "Realizing Existence as Co-existence at All Levels",
+          "The Holistic Perception of Harmony in Existence"
+        ]
+      },
+      {
+        "id": "unit_5",
+        "number": 5,
+        "title": "Implications of the Holistic Understanding – a Look at Professional",
+        "topics": [
+          "Natural Acceptance of Human Values",
+          "Definitiveness of (Ethical) Human Conduct",
+          "A Basis for Humanistic Education",
+          "Humanistic Constitution and Universal Human Order",
+          "Competence in Professional Ethics",
+          "Holistic Technologies, Production Systems and Management Models-Typical Case Studies",
+          "Strategies for Transition towards Value-based Life and Profession"
+        ]
+      },
+      {
+        "id": "unit_6",
+        "number": 6,
+        "title": "Professional Ethics and Management",
+        "topics": [
+          "Competence in Professional Ethics",
+          "Holistic Technologies, Production Systems and Management Models-Typical Case Studies",
+          "Strategies for Transition towards Value-based Life and Profession"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.892Z"
+  },
+  {
+    "id": "105307_indian_knowledge_system",
+    "slug": "105307_indian_knowledge_system",
+    "semester": 3,
+    "isCore": false,
+    "name": "Indian Knowledge System",
+    "code": "105307",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105307_indian_knowledge_system",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105307_indian_knowledge_system",
+    "hasCode": true,
+    "description": "Indian Knowledge System (105307) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Introduction to Indian Knowledge Systems",
+        "topics": [
+          "Overview of IKS",
+          "Organization of IKS",
+          "Conception and constitution of knowledge in indian tradition",
+          "The oral tradition",
+          "Models and Strategies of IKS"
+        ]
+      },
+      {
+        "id": "unit_2",
+        "number": 2,
+        "title": "Overview of IKS Domains",
+        "topics": [
+          "The vedas as the basis of IKS",
+          "Overview of all the six vedāṅgas"
+        ]
+      },
+      {
+        "id": "unit_3",
+        "number": 3,
+        "title": "Relevance in Current Technical Education System I",
+        "topics": [
+          "Relevance of Arthashastra (Indian economics and political systems)",
+          "Ganita and Jyamiti (indian mathematics, astronomy and geometry)",
+          "Rasayana (indian chemical Sciences)"
+        ]
+      },
+      {
+        "id": "unit_4",
+        "number": 4,
+        "title": "Relevance in Current Technical Education System II",
+        "topics": [
+          "Ayurveda (Indian Biological Sciences / Diet & Nutrition)",
+          "Jyotish Vidya (observational astronomy and calendar systems)",
+          "Prakriti Vidya (indian system of terrestrial/ material sciences/ecology and atmospheric sciences)"
+        ]
+      },
+      {
+        "id": "unit_5",
+        "number": 5,
+        "title": "Relevance in Current Technical Education System III",
+        "topics": [
+          "Vastu Vidya (indian system of aesthetics-iconography and built-environment /architecture)",
+          "Nyaya Shastra (indian systems of social ethics, logic and law)"
+        ]
+      },
+      {
+        "id": "unit_6",
+        "number": 6,
+        "title": "Arts, Psychology, and Sciences",
+        "topics": [
+          "Shilpa and Natya Shastra (indian classical arts: performing and fine arts)",
+          "Sankhya and Yoga Darshna (indian psychology, yoga and consciousness studies)",
+          "Vrikshayurveda (plant science/sustainable agriculture/food preservation methods)"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.894Z"
+  },
+  {
+    "id": "105301p_digital_electronics_lab",
+    "slug": "105301p_digital_electronics_lab",
+    "semester": 3,
+    "isCore": false,
+    "name": "Digital Electronics Lab",
+    "code": "105301P",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105301p_digital_electronics_lab",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105301p_digital_electronics_lab",
+    "hasCode": true,
+    "description": "Digital Electronics Lab (105301P) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Digital Electronics Lab Experiments",
+        "topics": [
+          "Universal Gates: Identification and verification of NAND gate (IC #7400) and NOR gate (IC #7402), Construction and Verification of all other gates using NAND/NOR",
+          "Code Convertor & Parity Generator and checker",
+          "Adder, Subtractor & Magnitude comparator circuits",
+          "Decoder, MUX & DMUX",
+          "Latches and Flip Flops",
+          "Shift Registers",
+          "Synchronous & Asynchronous Counters",
+          "Design and construction of a 4 bit sequence generator",
+          "Digital to Analog Converter (DAC)",
+          "Analog to Digital Converter (ADC)",
+          "Familiarization with multisim and design of various Digital Circuits"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.895Z"
+  },
+  {
+    "id": "105302p_data_structure_algorithms_la",
+    "slug": "105302p_data_structure_algorithms_la",
+    "semester": 3,
+    "isCore": false,
+    "name": "Data Structure & Algorithms Lab",
+    "code": "105302P",
+    "icon": "🗄️",
+    "badge": "Database Systems",
+    "color": "#0284c7",
+    "gradient": "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+    "folder": "uploads/subjects/105302p_data_structure_algorithms_la",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105302p_data_structure_algorithms_la",
+    "hasCode": true,
+    "description": "Data Structure & Algorithms Lab (105302P) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Data Structures Lab Programs",
+        "topics": [
+          "Write a program to read a linear list of items and store it in an array",
+          "Write a program to implement binary search",
+          "Write a program to implement stack using array and linked list",
+          "Write a program to convert infix expression into postfix expression",
+          "Write a program to implement queue using array, circular queue, and linked list",
+          "Implement single linked list operations (create, count, traverse, insert, delete, reverse)",
+          "Implement doubly linked list operations (insert, delete, reverse)",
+          "Create a node of circular singly linked list and circular doubly linked list",
+          "Write a program for tree traversal (Preorder, Inorder, Postorder)"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.899Z"
+  },
+  {
+    "id": "105303p_object_oriented_programming_us",
+    "slug": "105303p_object_oriented_programming_us",
+    "semester": 3,
+    "isCore": false,
+    "name": "Object Oriented Programming Using JAVA Lab",
+    "code": "105303P",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105303p_object_oriented_programming_us",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105303p_object_oriented_programming_us",
+    "hasCode": true,
+    "description": "Object Oriented Programming Using JAVA Lab (105303P) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "JAVA Lab Programs",
+        "topics": [
+          "Program to Demonstrate Basic Java Syntax and Control Structures",
+          "Program Using Classes, Objects, Methods, and Constructors",
+          "Program on Method Overloading and Constructor Overloading",
+          "Program to Demonstrate Inheritance and Use of 'super' Keyword",
+          "Program Using Method Overriding and Runtime Polymorphism",
+          "Program to Implement Abstract Class and Interface",
+          "Program on User-Defined Exceptions",
+          "Multithreading Program with Synchronization",
+          "File Handling Program Using Byte Stream & Character Stream",
+          "Program Using Java Collections Framework & JDBC Connectivity"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.902Z"
+  },
+  {
+    "id": "105305p_operating_systems_lab",
+    "slug": "105305p_operating_systems_lab",
+    "semester": 3,
+    "isCore": false,
+    "name": "Operating Systems Lab",
+    "code": "105305P",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105305p_operating_systems_lab",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105305p_operating_systems_lab",
+    "hasCode": true,
+    "description": "Operating Systems Lab (105305P) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Operating Systems Lab Programs",
+        "topics": [
+          "Write a program to implement FCFS scheduling algorithm",
+          "Write a program to implement SJF scheduling algorithm",
+          "Write a program to implement priority scheduling algorithm",
+          "Write a program to implement round robin scheduling",
+          "Write a program to implement banker's algorithm",
+          "Write a device driver for any device or peripheral",
+          "Write a program to implement disk scheduling algorithm",
+          "Write a program to implement dining philosopher problem",
+          "Write a program to implement producer consumer problem",
+          "Write a program to implement LRU page replacement algorithm"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.904Z"
+  },
+  {
+    "id": "105308_internship_i",
+    "slug": "105308_internship_i",
+    "semester": 3,
+    "isCore": false,
+    "name": "Internship-I",
+    "code": "105308",
+    "icon": "📚",
+    "badge": "CSE Core",
+    "color": "#6366f1",
+    "gradient": "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+    "folder": "uploads/subjects/105308_internship_i",
+    "fullPath": "/home/shwati-kumari/CSE-Study-Hub/uploads/subjects/105308_internship_i",
+    "hasCode": true,
+    "description": "Internship-I (105308) curriculum for Semester 3.",
+    "units": [
+      {
+        "id": "unit_1",
+        "number": 1,
+        "title": "Internship Guidelines",
+        "topics": [
+          "Minimum duration of two weeks in an Industry or Institute",
+          "Submission of detailed report of training undertaken along with certificate"
+        ]
+      }
+    ],
+    "createdAt": "2026-11-21T03:32:42.906Z"
+  }
+]

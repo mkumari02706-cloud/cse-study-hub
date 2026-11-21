@@ -1,0 +1,196 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <% 
+      const ext = notice.extractedData || {}; 
+      const timetable = ext.timetable || [];
+      const practicals = ext.practicalDates || [];
+      const assignments = ext.assignmentDeadlines || [];
+      const holidays = ext.holidays || [];
+    %>
+
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <a href="/notices" class="btn btn-secondary btn-sm">← Back to Notices</a>
+          <span class="core-badge" style="background: var(--accent-light); color: var(--accent-primary);"><%= notice.noticeType %></span>
+          <span class="nav-badge">Semester <%= notice.semester %></span>
+        </div>
+        <h1 class="page-title" style="margin: 0;"><%= notice.title %></h1>
+        <p class="page-subtitle" style="margin-top: 4px;">
+          🏛️ <%= notice.universityName %> • Circular Date: <%= notice.noticeDate %>
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <% if (ext.examinationDates && ext.examinationDates.start) { %>
+          <button type="button" class="btn btn-primary" onclick="syncWithPlanner('<%= ext.examinationDates.start %>', '<%= notice.semester %>')">
+            <span>⚡ Generate Personal Study Plan</span>
+          </button>
+        <% } %>
+        <button type="button" class="btn btn-danger-outline btn-sm" onclick="deleteNoticeFromDetail('<%= notice._id %>')">
+          <span>🗑️</span>
+          <span>Delete Notice</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Examination Window Banner -->
+    <% if (ext.examinationDates && ext.examinationDates.start) { %>
+      <div class="card" style="margin-bottom: 24px; border-left: 5px solid #dc2626;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+          <div>
+            <span class="core-badge" style="background: #ef444420; color: #dc2626;">Examination Period</span>
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin: 4px 0 2px;">
+              <%= ext.examinationDates.start %> to <%= ext.examinationDates.end || 'Concluding Date' %>
+            </h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+              Total <%= timetable.length %> theory papers scheduled in this examination cycle.
+            </p>
+          </div>
+          <a href="/planner" class="btn btn-secondary btn-sm">View Schedule in Planner →</a>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Examination Timetable Table -->
+    <div class="card" style="margin-bottom: 24px;">
+      <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <span>📅</span>
+        <span>Theory Examination Timetable</span>
+      </h2>
+
+      <% if (timetable.length === 0) { %>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">No theory papers found in this notice.</p>
+      <% } else { %>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+              <tr style="background: var(--bg-primary); border-bottom: 2px solid var(--border-color); text-align: left;">
+                <th style="padding: 10px 14px;">Paper Code</th>
+                <th style="padding: 10px 14px;">Subject Name</th>
+                <th style="padding: 10px 14px;">Date</th>
+                <th style="padding: 10px 14px;">Time</th>
+                <th style="padding: 10px 14px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% timetable.forEach(paper => { %>
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                  <td style="padding: 10px 14px;"><span class="unit-number-badge"><%= paper.subjectCode || 'THEORY' %></span></td>
+                  <td style="padding: 10px 14px; font-weight: 700;"><%= paper.subjectName %></td>
+                  <td style="padding: 10px 14px; color: #dc2626; font-weight: 700;"><%= paper.date %></td>
+                  <td style="padding: 10px 14px; color: var(--text-muted);"><%= paper.time || '10:00 AM' %></td>
+                  <td style="padding: 10px 14px;">
+                    <a href="/transcription?category=curriculum&topic=<%= encodeURIComponent(paper.subjectName) %>" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+                      🎙️ Transcribe Lecture
+                    </a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- 2 Columns: Practicals & Assignment Deadlines -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+      
+      <!-- Practicals Card -->
+      <div class="card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>🔬</span>
+          <span>Practical Examination Dates</span>
+        </h3>
+        <% if (practicals.length === 0) { %>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">No separate practical examination schedule announced in this circular.</p>
+        <% } else { %>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <% practicals.forEach(p => { %>
+              <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: var(--bg-primary); border-radius: var(--radius-sm);">
+                <strong style="font-size: 0.88rem;"><%= p.subjectName %></strong>
+                <span style="font-size: 0.82rem; color: #8b5cf6; font-weight: 700;"><%= p.date %> (<%= p.time || '09:00 AM' %>)</span>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- Assignment Deadlines & Holidays -->
+      <div class="card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>📌</span>
+          <span>Assignments & Holidays</span>
+        </h3>
+        <% if (assignments.length === 0 && holidays.length === 0) { %>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">No assignment deadlines or holiday announcements in this notice.</p>
+        <% } else { %>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <% assignments.forEach(a => { %>
+              <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+                <span style="font-size: 0.88rem;">Assignment: <strong><%= a.title || a.subjectName %></strong></span>
+                <span style="font-size: 0.82rem; font-weight: 700; color: #047857;">Due: <%= a.deadline %></span>
+              </div>
+            <% }) %>
+            <% holidays.forEach(h => { %>
+              <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+                <span style="font-size: 0.88rem;">Holiday: <strong><%= h.name %></strong></span>
+                <span style="font-size: 0.82rem; font-weight: 700; color: #b45309;"><%= h.date %></span>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  async function syncWithPlanner(examDate, semester) {
+    if (!confirm(`Generate personalized study schedule targeting ${examDate}?`)) return;
+    try {
+      const res = await fetch('/planner/api/plan/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ semester: parseInt(semester, 10) || 3, targetExamDate: examDate, dailyAvailableHours: 3 })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ Study Plan successfully generated! Redirecting to Study Planner...');
+        window.location.href = '/planner';
+      } else {
+        alert(`Planner error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    }
+  }
+  async function deleteNoticeFromDetail(id) {
+    const confirmed = await window.showConfirmDialog({
+      title: 'Delete University Notice',
+      message: 'Are you sure you want to permanently delete this notice and all its timetable events?',
+      confirmText: 'Confirm Delete'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/notices/api/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        window.showToast('Notice deleted successfully.', 'success');
+        setTimeout(() => { window.location.href = '/notices'; }, 400);
+      } else {
+        window.showToast(`Delete failed: ${data.error}`, 'error');
+      }
+    } catch (e) {
+      window.showToast(`Error: ${e.message}`, 'error');
+    }
+  }
+</script>
+
+<%- include('../partials/footer') %>

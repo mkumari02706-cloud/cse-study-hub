@@ -1,0 +1,384 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+          <span class="unit-number-badge"><%= quiz.subjectName %></span>
+          <% if (typeof isMock !== 'undefined' && isMock) { %>
+            <span class="core-badge" style="background: #ef444420; color: #dc2626;">⏱️ Timed Mock Exam</span>
+          <% } else { %>
+            <span class="core-badge" style="background: #3b82f620; color: #2563eb;">🎯 Topic MCQ Practice</span>
+          <% } %>
+        </div>
+        <h1 class="page-title" style="margin: 0;"><%= quiz.topicName %></h1>
+      </div>
+
+      <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <% if (typeof isMock !== 'undefined' && isMock) { %>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #dc2626; padding: 6px 14px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm);" id="timerBox">
+            ⏳ 45:00
+          </div>
+        <% } %>
+        <a href="/practice/flashcards?subject=<%= quiz.subjectId %>&topic=<%= encodeURIComponent(quiz.topicName) %>" class="btn btn-secondary">
+          <span>🃏 Review Flashcards</span>
+        </a>
+        <a href="/practice" class="btn btn-secondary">← Exit Practice</a>
+      </div>
+    </div>
+
+    <!-- Quiz Active Container -->
+    <div id="quizActiveContainer" class="card" style="margin-bottom: 24px; max-width: 800px; margin-left: auto; margin-right: auto;">
+      <!-- Progress Bar & Question Counter -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.88rem; flex-wrap: wrap; gap: 8px;">
+        <span id="questionCounter" style="font-weight: 700;">Question 1 of <%= (quiz.questions && quiz.questions.length) ? quiz.questions.length : 1 %></span>
+        <span id="scoreTracker" style="font-weight: 700; color: var(--accent-primary);">Score: 0 / 0</span>
+      </div>
+      <div class="progress-container" style="height: 8px; margin-bottom: 24px; border-radius: 4px; overflow: hidden; background: var(--border-color);">
+        <div id="quizProgressBar" class="progress-bar-fill" style="width: 0%; background: var(--accent-primary); transition: width 0.3s ease;"></div>
+      </div>
+
+      <!-- Question Metadata: Topic & Difficulty Badges -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+        <span id="questionTopicBadge" class="unit-number-badge" style="font-size: 0.76rem;">
+          <%= quiz.topicName %>
+        </span>
+        <span id="questionDifficultyBadge" class="nav-badge" style="font-size: 0.76rem; background: #f59e0b20; color: #f59e0b;">
+          Medium
+        </span>
+      </div>
+
+      <!-- Question Content -->
+      <div id="questionBox">
+        <h2 id="questionText" style="font-size: 1.25rem; font-weight: 700; line-height: 1.5; margin-bottom: 20px;">
+          Loading question...
+        </h2>
+
+        <!-- Options List -->
+        <div id="optionsList" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Explanation Card (hidden until answer submitted) -->
+        <div id="explanationBox" style="display: none; padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px;">
+          <h4 id="explanationStatus" style="font-weight: 700; margin-bottom: 6px;"></h4>
+          <p id="explanationText" style="font-size: 0.88rem; margin: 0; line-height: 1.5;"></p>
+        </div>
+
+        <!-- Action Buttons: Submit Answer & Next Question -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <span style="font-size: 0.82rem; color: var(--text-muted);" id="selectPromptText">
+            👉 Select an option, then click "Submit Answer"
+          </span>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" id="submitAnswerBtn" class="btn btn-primary" disabled onclick="submitAnswer()">
+              <span>Submit Answer</span>
+            </button>
+            <button type="button" id="nextQuestionBtn" class="btn btn-primary" style="display: none;" onclick="goToNextQuestion()">
+              <span>Next Question →</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz Results Summary Container (Initially hidden) -->
+    <div id="quizResultContainer" class="card" style="display: none; text-align: center; padding: 40px 20px; max-width: 800px; margin: 0 auto;">
+      <div style="font-size: 3.5rem; margin-bottom: 12px;" id="resultEmoji">🎉</div>
+      <h2 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 8px;">Practice Quiz Completed!</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 24px;">Here is your performance diagnostic for <strong><%= quiz.topicName %></strong>:</p>
+
+      <div style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 140px; height: 140px; border-radius: 50%; border: 6px solid var(--accent-primary); margin-bottom: 24px;">
+        <span id="finalScoreText" style="font-size: 2.2rem; font-weight: 800; color: var(--accent-primary);">0%</span>
+        <span id="finalFractionText" style="font-size: 0.82rem; color: var(--text-muted);">0 of 0</span>
+      </div>
+
+      <div id="resultFeedback" style="max-width: 500px; margin: 0 auto 28px; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);"></div>
+
+      <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <button type="button" onclick="restartQuiz()" class="btn btn-primary">
+          <span>🔄 Retake Quiz</span>
+        </button>
+        <a href="/practice/flashcards?subject=<%= quiz.subjectId %>&topic=<%= encodeURIComponent(quiz.topicName) %>" class="btn btn-secondary">
+          <span>🃏 Review Flashcards</span>
+        </a>
+        <a href="/assistant?topic=<%= encodeURIComponent(quiz.topicName) %>" class="btn btn-secondary">
+          <span>🤖 Ask AI Tutor</span>
+        </a>
+        <a href="/practice" class="btn btn-secondary">
+          <span>Back to Practice Hub</span>
+        </a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  let rawQuestions = <%- JSON.stringify(quiz.questions || []) %>;
+  
+  // Guarantee fallback questions if empty so it NEVER shows a blank screen
+  if (!rawQuestions || rawQuestions.length === 0) {
+    rawQuestions = [
+      {
+        id: "q_fb_1",
+        question: "Which core principle is central to understanding <%= quiz.topicName %>?",
+        options: [
+          "Deterministic state abstraction and modular encapsulation",
+          "Arbitrary unconstrained memory mutation",
+          "Hardware bus frequency inversion only",
+          "Single-threaded processor restrictions"
+        ],
+        correctIndex: 0,
+        explanation: "Academic curricula emphasize high abstraction, state preservation, and mathematical invariants.",
+        difficultyLevel: "Easy",
+        relatedTopic: "<%= quiz.topicName %>"
+      },
+      {
+        id: "q_fb_2",
+        question: "When analyzing asymptotic bounds for <%= quiz.topicName %>, what metric is evaluated first?",
+        options: [
+          "Tight worst-case Big-O time and auxiliary space complexity",
+          "Variable identifier character lengths",
+          "Strict recursive syntax requirements",
+          "Hardware cache bypass switches"
+        ],
+        correctIndex: 0,
+        explanation: "University examination standards evaluate algorithms primarily on formal time and auxiliary space invariants.",
+        difficultyLevel: "Medium",
+        relatedTopic: "<%= quiz.topicName %>"
+      }
+    ];
+  }
+
+  const questions = [...rawQuestions];
+  const subjectId = "<%= quiz.subjectId %>";
+  const topicName = "<%= quiz.topicName %>";
+
+  let currentIndex = 0;
+  let correctCount = 0;
+  let selectedOptionIndex = null;
+  let isAnswerSubmitted = false;
+
+  function loadQuestion(index) {
+    selectedOptionIndex = null;
+    isAnswerSubmitted = false;
+    const q = questions[index];
+    if (!q) return;
+
+    document.getElementById('questionCounter').innerText = `Question ${index + 1} of ${questions.length}`;
+    document.getElementById('quizProgressBar').style.width = `${((index + 1) / questions.length) * 100}%`;
+    document.getElementById('questionText').innerText = q.question;
+
+    document.getElementById('questionTopicBadge').innerText = q.relatedTopic || q.topic || topicName;
+    const diff = q.difficultyLevel || q.difficulty || 'Medium';
+    const diffBadge = document.getElementById('questionDifficultyBadge');
+    diffBadge.innerText = diff;
+    if (diff.toLowerCase() === 'easy') {
+      diffBadge.style.background = '#10b98120';
+      diffBadge.style.color = '#10b981';
+    } else if (diff.toLowerCase() === 'hard') {
+      diffBadge.style.background = '#ef444420';
+      diffBadge.style.color = '#ef4444';
+    } else {
+      diffBadge.style.background = '#f59e0b20';
+      diffBadge.style.color = '#f59e0b';
+    }
+
+    const optionsContainer = document.getElementById('optionsList');
+    optionsContainer.innerHTML = '';
+
+    document.getElementById('explanationBox').style.display = 'none';
+    document.getElementById('submitAnswerBtn').style.display = 'inline-flex';
+    document.getElementById('submitAnswerBtn').disabled = true;
+    document.getElementById('nextQuestionBtn').style.display = 'none';
+    document.getElementById('selectPromptText').innerText = '👉 Select an option, then click "Submit Answer"';
+
+    q.options.forEach((opt, optIdx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'quiz-option-btn';
+      btn.id = `option_btn_${optIdx}`;
+      btn.style.cssText = 'display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 18px; border-radius: var(--radius-sm); border: 2px solid var(--border-color); background: var(--bg-primary); cursor: pointer; font-size: 0.92rem; font-weight: 500; transition: all 0.15s ease; color: var(--text-primary);';
+
+      const letterBadge = document.createElement('span');
+      letterBadge.id = `option_letter_${optIdx}`;
+      letterBadge.style.cssText = 'width: 28px; height: 28px; border-radius: 50%; background: var(--bg-surface); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; border: 1px solid var(--border-color); flex-shrink: 0;';
+      letterBadge.innerText = String.fromCharCode(65 + optIdx);
+
+      const textSpan = document.createElement('span');
+      textSpan.innerText = opt;
+
+      btn.appendChild(letterBadge);
+      btn.appendChild(textSpan);
+
+      btn.addEventListener('click', () => selectOption(optIdx));
+      optionsContainer.appendChild(btn);
+    });
+  }
+
+  function selectOption(optIdx) {
+    if (isAnswerSubmitted) return;
+    selectedOptionIndex = optIdx;
+
+    const allBtns = document.querySelectorAll('.quiz-option-btn');
+    allBtns.forEach((btn, idx) => {
+      const letter = document.getElementById(`option_letter_${idx}`);
+      if (idx === optIdx) {
+        btn.style.borderColor = 'var(--accent-primary)';
+        btn.style.background = 'var(--accent-light)';
+        btn.style.boxShadow = '0 0 0 1px var(--accent-primary)';
+        if (letter) {
+          letter.style.background = 'var(--accent-primary)';
+          letter.style.color = 'white';
+        }
+      } else {
+        btn.style.borderColor = 'var(--border-color)';
+        btn.style.background = 'var(--bg-primary)';
+        btn.style.boxShadow = 'none';
+        if (letter) {
+          letter.style.background = 'var(--bg-surface)';
+          letter.style.color = 'inherit';
+        }
+      }
+    });
+
+    const submitBtn = document.getElementById('submitAnswerBtn');
+    submitBtn.disabled = false;
+    document.getElementById('selectPromptText').innerText = `Selected Option ${String.fromCharCode(65 + optIdx)}. Click "Submit Answer" to check.`;
+  }
+
+  function submitAnswer() {
+    if (selectedOptionIndex === null || isAnswerSubmitted) return;
+    isAnswerSubmitted = true;
+
+    const q = questions[currentIndex];
+    const correctIdx = (typeof q.correctIndex === 'number') ? q.correctIndex : 0;
+    const isCorrect = (selectedOptionIndex === correctIdx);
+
+    if (isCorrect) correctCount++;
+
+    document.getElementById('scoreTracker').innerText = `Score: ${correctCount} / ${currentIndex + 1}`;
+
+    const optionBtns = document.querySelectorAll('.quiz-option-btn');
+    optionBtns.forEach((btn, idx) => {
+      btn.style.cursor = 'default';
+      const letter = document.getElementById(`option_letter_${idx}`);
+      if (idx === correctIdx) {
+        btn.style.background = 'rgba(16, 185, 129, 0.15)';
+        btn.style.borderColor = '#10b981';
+        btn.style.color = '#047857';
+        btn.style.fontWeight = '700';
+        if (letter) {
+          letter.style.background = '#10b981';
+          letter.style.color = 'white';
+          letter.innerText = '✓';
+        }
+      } else if (idx === selectedOptionIndex && !isCorrect) {
+        btn.style.background = 'rgba(239, 68, 68, 0.15)';
+        btn.style.borderColor = '#ef4444';
+        btn.style.color = '#b91c1c';
+        btn.style.fontWeight = '700';
+        if (letter) {
+          letter.style.background = '#ef4444';
+          letter.style.color = 'white';
+          letter.innerText = '✗';
+        }
+      } else {
+        btn.style.opacity = '0.5';
+      }
+    });
+
+    const expBox = document.getElementById('explanationBox');
+    const expStatus = document.getElementById('explanationStatus');
+    const expText = document.getElementById('explanationText');
+
+    expBox.style.display = 'block';
+    if (isCorrect) {
+      expBox.style.background = 'rgba(16, 185, 129, 0.1)';
+      expBox.style.border = '1px solid #10b981';
+      expStatus.innerHTML = '✅ Correct Answer!';
+      expStatus.style.color = '#047857';
+    } else {
+      expBox.style.background = 'rgba(239, 68, 68, 0.1)';
+      expBox.style.border = '1px solid #ef4444';
+      expStatus.innerHTML = `❌ Incorrect (Correct was Option ${String.fromCharCode(65 + correctIdx)})`;
+      expStatus.style.color = '#b91c1c';
+    }
+    expText.innerText = q.explanation || 'Detailed derivation and proofs can be found in the curriculum syllabus notes.';
+
+    document.getElementById('submitAnswerBtn').style.display = 'none';
+    const nextBtn = document.getElementById('nextQuestionBtn');
+    nextBtn.style.display = 'inline-flex';
+    nextBtn.innerText = (currentIndex === questions.length - 1) ? 'View Results & Save Score 🏁' : 'Next Question →';
+    document.getElementById('selectPromptText').innerText = isCorrect ? '🎉 Well done!' : '💡 Review the explanation above.';
+  }
+
+  function goToNextQuestion() {
+    currentIndex++;
+    if (currentIndex < questions.length) {
+      loadQuestion(currentIndex);
+    } else {
+      finishQuiz();
+    }
+  }
+
+  async function finishQuiz() {
+    document.getElementById('quizActiveContainer').style.display = 'none';
+    const resultContainer = document.getElementById('quizResultContainer');
+    resultContainer.style.display = 'block';
+
+    const percentage = Math.round((correctCount / questions.length) * 100);
+    document.getElementById('finalScoreText').innerText = `${percentage}%`;
+    document.getElementById('finalFractionText').innerText = `${correctCount} of ${questions.length} Correct`;
+
+    const feedback = document.getElementById('resultFeedback');
+    const emoji = document.getElementById('resultEmoji');
+
+    if (percentage >= 80) {
+      emoji.innerText = '🏆';
+      feedback.innerHTML = `<strong>Mastery Level!</strong> Outstanding conceptual precision on ${topicName}. You are thoroughly prepared for university examination questions on this topic.`;
+    } else if (percentage >= 60) {
+      emoji.innerText = '👍';
+      feedback.innerHTML = `<strong>Solid Foundation!</strong> Good retention, but a few edge cases were missed. Review quick revision notes and revisit flashcards before semester exams.`;
+    } else {
+      emoji.innerText = '⚠️';
+      feedback.innerHTML = `<strong>Diagnostic Alert:</strong> Accuracy fell below 60%. This topic has been logged into your <strong>Weak-Topic Matrix</strong> so you can revise target notes.`;
+    }
+
+    // Submit attempt to backend
+    try {
+      await fetch('/practice/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectId,
+          topicName,
+          score: correctCount,
+          total: questions.length
+        })
+      });
+    } catch (e) {
+      console.warn('Could not record score:', e.message);
+    }
+  }
+
+  function restartQuiz() {
+    currentIndex = 0;
+    correctCount = 0;
+    document.getElementById('scoreTracker').innerText = `Score: 0 / 0`;
+    document.getElementById('quizResultContainer').style.display = 'none';
+    document.getElementById('quizActiveContainer').style.display = 'block';
+    loadQuestion(0);
+  }
+
+  // Initial load
+  if (questions.length > 0) {
+    loadQuestion(0);
+  }
+</script>
+
+<%- include('../partials/footer') %>

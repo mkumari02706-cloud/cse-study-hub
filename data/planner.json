@@ -1,0 +1,171 @@
+{
+  "examCountdown": [
+    {
+      "id": "exam_endsem",
+      "examName": "Semester 3 University Examination",
+      "subjectId": "all",
+      "date": "2026-12-15",
+      "targetScore": "85%+"
+    }
+  ],
+  "dailyGoals": [
+    {
+      "id": "goal_1",
+      "text": "Complete OOPS Unit 3: Dynamic Method Dispatch & Interfaces",
+      "subjectId": "oops_java",
+      "date": "2026-11-21",
+      "completed": false,
+      "createdAt": "2026-11-21T04:04:56.827Z"
+    },
+    {
+      "id": "goal_2",
+      "text": "Solve 2 LeetCode problems on Fast & Slow Pointers (DSA)",
+      "subjectId": "dsa_java",
+      "date": "2026-11-21",
+      "completed": true,
+      "createdAt": "2026-11-21T04:04:56.827Z"
+    },
+    {
+      "id": "goal_3",
+      "text": "Review Banker’s Algorithm safety numericals in Operating Systems",
+      "subjectId": "operating_systems",
+      "date": "2026-11-21",
+      "completed": false,
+      "createdAt": "2026-11-21T04:04:56.827Z"
+    }
+  ],
+  "weeklyTimetable": {
+    "monday": [
+      {
+        "id": "tt_1",
+        "time": "09:00 - 11:00 AM",
+        "subjectId": "oops_java",
+        "topic": "Core OOP & Memory Management",
+        "type": "Lecture / Notes"
+      },
+      {
+        "id": "tt_2",
+        "time": "02:00 - 04:00 PM",
+        "subjectId": "dsa_java",
+        "topic": "Trees & Graph Traversals",
+        "type": "Coding Practice"
+      }
+    ],
+    "tuesday": [
+      {
+        "id": "tt_3",
+        "time": "09:00 - 11:00 AM",
+        "subjectId": "operating_systems",
+        "topic": "Process Synchronization & Semaphores",
+        "type": "Theory + Numericals"
+      },
+      {
+        "id": "tt_4",
+        "time": "03:00 - 05:00 PM",
+        "subjectId": "discrete_mathematics",
+        "topic": "Propositional Logic & Proofs",
+        "type": "Problem Solving"
+      }
+    ],
+    "wednesday": [
+      {
+        "id": "tt_5",
+        "time": "10:00 - 12:00 PM",
+        "subjectId": "digital_electronics",
+        "topic": "K-Map Minimization & Decoders",
+        "type": "Circuits & Tables"
+      },
+      {
+        "id": "tt_6",
+        "time": "04:00 - 06:00 PM",
+        "subjectId": "dsa_java",
+        "topic": "Dynamic Programming Patterns",
+        "type": "Coding Practice"
+      }
+    ],
+    "thursday": [
+      {
+        "id": "tt_7",
+        "time": "09:00 - 11:00 AM",
+        "subjectId": "oops_java",
+        "topic": "Multithreading & Collections",
+        "type": "Lab Implementation"
+      },
+      {
+        "id": "tt_8",
+        "time": "02:00 - 04:00 PM",
+        "subjectId": "operating_systems",
+        "topic": "Deadlocks & Virtual Memory Paging",
+        "type": "Exam PYQs"
+      }
+    ],
+    "friday": [
+      {
+        "id": "tt_9",
+        "time": "10:00 - 12:00 PM",
+        "subjectId": "discrete_mathematics",
+        "topic": "Graph Theory & Combinatorics",
+        "type": "Formula Practice"
+      },
+      {
+        "id": "tt_10",
+        "time": "03:00 - 05:00 PM",
+        "subjectId": "digital_electronics",
+        "topic": "Flip-Flops & Counters",
+        "type": "Circuits & FSM"
+      }
+    ],
+    "saturday": [
+      {
+        "id": "tt_11",
+        "time": "10:00 - 01:00 PM",
+        "subjectId": "all",
+        "topic": "Multi-Subject PYQ Paper Solving",
+        "type": "Mock Exam"
+      },
+      {
+        "id": "tt_12",
+        "time": "04:00 - 06:00 PM",
+        "subjectId": "all",
+        "topic": "Weekly Spaced Repetition Revision",
+        "type": "Revision"
+      }
+    ],
+    "sunday": [
+      {
+        "id": "tt_13",
+        "time": "11:00 - 01:00 PM",
+        "subjectId": "all",
+        "topic": "Explore & Learn: AI/ML Roadmap Projects",
+        "type": "Career Track"
+      }
+    ]
+  },
+  "revisionSchedule": [
+    {
+      "id": "rev_1",
+      "topicName": "Dynamic Method Dispatch",
+      "subjectId": "oops_java",
+      "unitNumber": 3,
+      "cycle1Date": "2026-11-21",
+      "cycle1Done": true,
+      "cycle2Date": "2026-11-26",
+      "cycle2Done": false
+    },
+    {
+      "id": "rev_2",
+      "topicName": "Banker’s Algorithm Deadlock Avoidance",
+      "subjectId": "operating_systems",
+      "unitNumber": 5,
+      "cycle1Date": "2026-11-21",
+      "cycle1Done": false,
+      "cycle2Date": "2026-11-28",
+      "cycle2Done": false
+    }
+  ],
+  "studyStreak": {
+    "currentStreak": 5,
+    "totalStudyHours": 42,
+    "lastLoggedDate": "2026-11-21"
+  }
+}

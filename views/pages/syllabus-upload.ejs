@@ -1,0 +1,309 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <h1 class="page-title">AI Syllabus Management & PDF Upload</h1>
+        <p class="page-subtitle">Upload university syllabus PDFs to automatically extract subjects, units, and topics using Gemini AI.</p>
+      </div>
+      <div>
+        <a href="/" class="btn btn-secondary">
+          <span>←</span>
+          <span>Back to Dashboard</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- AI Config Banner -->
+    <% if (!aiConfigured) { %>
+      <div class="alert alert-warning" style="margin-bottom: 24px;">
+        <span>⚠️</span>
+        <div style="flex: 1;">
+          <strong>AI API Key Not Detected in <code>.env</code>:</strong>
+          Text-based PDFs can still be processed with our smart heuristic parser! To unlock Gemini Vision OCR for scanned PDFs and deep AI topic explanations, add <code>GEMINI_API_KEY=your_key</code> in your <code>.env</code> file.
+        </div>
+      </div>
+    <% } else { %>
+      <div class="alert alert-info" style="margin-bottom: 24px;">
+        <span>🤖</span>
+        <div style="flex: 1;">
+          <strong>Gemini AI Active:</strong> Multimodal syllabus extraction is ready. You can upload multi-subject, multi-unit syllabi in standard text or scanned PDF format.
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Mode Switcher Tabs (AI PDF Upload vs Manual Add) -->
+    <div class="syllabus-mode-tabs" style="display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">
+      <button type="button" id="tabUploadBtn" class="mode-tab active" onclick="switchSyllabusMode('upload')">
+        <span>📄</span>
+        <span>AI PDF Upload & Extraction</span>
+      </button>
+      <button type="button" id="tabManualBtn" class="mode-tab" onclick="switchSyllabusMode('manual')">
+        <span>✏️</span>
+        <span>Manual Subject Creation</span>
+      </button>
+    </div>
+
+    <!-- SECTION 1: PDF Upload Form -->
+    <div id="uploadSection" class="card" style="margin-bottom: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <span class="step-badge">1</span>
+        <span>Upload University Syllabus PDF</span>
+      </h2>
+
+      <form id="syllabusUploadForm" enctype="multipart/form-data" novalidate>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px;">
+          <!-- Dropzone -->
+          <div class="file-dropzone" id="pdfDropzone" role="button" tabindex="0" title="Click or drag and drop a PDF syllabus">
+            <input type="file" id="syllabusFileInput" name="syllabusPdf" accept=".pdf,application/pdf" style="display: none;">
+            <div class="dropzone-content" id="dropzonePrompt">
+              <div style="font-size: 2.8rem; margin-bottom: 8px;">📄</div>
+              <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 4px;">Drag & Drop Syllabus PDF here</h4>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Supports multi-subject & scanned PDFs up to 25MB</p>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('syllabusFileInput').click()">Browse PDF File</button>
+            </div>
+            <div id="fileSelectedDisplay" style="display: none; text-align: center;">
+              <div style="font-size: 2.5rem; margin-bottom: 4px;">✅</div>
+              <strong id="selectedFileName" style="font-size: 1rem; display: block; color: var(--accent-primary);">filename.pdf</strong>
+              <span id="selectedFileSize" style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 10px;">0 KB</span>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('syllabusFileInput').click()">Choose Another</button>
+            </div>
+          </div>
+
+          <!-- Configuration Panel -->
+          <div style="display: flex; flex-direction: column; justify-content: space-between; gap: 14px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="targetSemesterSelect">Target Semester *</label>
+              <select id="targetSemesterSelect" name="semester" class="form-control">
+                <option value="">Auto-Detect from Syllabus</option>
+                <% for (let sem = 1; sem <= 8; sem++) { %>
+                  <option value="<%= sem %>" <%= String(selectedSemester) === String(sem) ? 'selected' : '' %>>
+                    Semester <%= sem %>
+                  </option>
+                <% } %>
+              </select>
+              <small style="color: var(--text-muted); font-size: 0.78rem; display: block; margin-top: 4px;">
+                Gemini will detect the semester automatically or default to your selection.
+              </small>
+            </div>
+
+            <div style="background: var(--bg-primary); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); font-size: 0.82rem;">
+              <strong style="display: block; margin-bottom: 4px; color: var(--text-primary);">✨ Gemini AI Capabilities:</strong>
+              <ul style="padding-left: 18px; color: var(--text-secondary); line-height: 1.5;">
+                <li>Extracts multiple subjects & course codes</li>
+                <li>Identifies Unit numbers and titles</li>
+                <li>Breaks down topics & subtopics</li>
+                <li>Allows full review & edits before saving</li>
+              </ul>
+            </div>
+
+            <button type="submit" id="extractSyllabusBtn" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center;">
+              <span>🤖</span>
+              <span>Extract Syllabus with Gemini AI</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Extraction Progress Bar & Live Status -->
+      <div id="extractionProgress" style="display: none; padding: 20px; background: var(--bg-primary); border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+        <div class="spinner" style="margin: 0 auto 14px;"></div>
+        <h4 id="extractionStatusTitle" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">Analyzing Syllabus PDF...</h4>
+        <p id="extractionStatusDesc" style="font-size: 0.85rem; color: var(--text-secondary); max-width: 500px; margin: 0 auto;">
+          Gemini AI is parsing course codes, units, and topic outlines. This usually takes 5-15 seconds.
+        </p>
+      </div>
+
+      <!-- Extraction Error Box -->
+      <div id="extractionErrorBox" class="alert alert-danger" style="display: none; margin-top: 16px;">
+        <span>❌</span>
+        <div id="extractionErrorMsg" style="flex: 1;"></div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Preview & Interactive Editor Canvas (Hidden initially until extracted) -->
+    <div id="previewSection" style="display: none;">
+      <div class="card" style="margin-bottom: 24px; border-top: 5px solid var(--accent-primary);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="step-badge">2</span>
+              <h2 style="font-size: 1.35rem; font-weight: 700;">Review & Edit Extracted Syllabus</h2>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px;">
+              Inspect and customize subjects, unit names, and topics. Nothing is saved until you click the confirm button.
+            </p>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+              <label for="previewSemesterSelect" style="font-size: 0.85rem; font-weight: 600; white-space: nowrap;">Assigned Semester:</label>
+              <select id="previewSemesterSelect" class="form-control" style="width: 140px;">
+                <% for (let s = 1; s <= 8; s++) { %>
+                  <option value="<%= s %>">Semester <%= s %></option>
+                <% } %>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Extraction Summary Metric Row -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: var(--bg-primary); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <span style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Extracted Subjects</span>
+            <h3 id="statSubjectCount" style="font-size: 1.4rem; font-weight: 800; color: var(--accent-primary); margin-top: 2px;">0</h3>
+          </div>
+          <div style="background: var(--bg-primary); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <span style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Total Units</span>
+            <h3 id="statUnitCount" style="font-size: 1.4rem; font-weight: 800; color: var(--success); margin-top: 2px;">0</h3>
+          </div>
+          <div style="background: var(--bg-primary); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <span style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Total Topics</span>
+            <h3 id="statTopicCount" style="font-size: 1.4rem; font-weight: 800; color: var(--info); margin-top: 2px;">0</h3>
+          </div>
+          <div style="background: var(--bg-primary); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <span style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase;">Extraction Engine</span>
+            <h3 id="statEngine" style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 6px;">Gemini AI</h3>
+          </div>
+        </div>
+
+        <!-- Dynamic Extracted Subjects Container -->
+        <div id="extractedSubjectsContainer" style="display: flex; flex-direction: column; gap: 24px;">
+          <!-- Subject cards injected by JavaScript -->
+        </div>
+
+        <!-- Add Another Subject Button -->
+        <div style="margin-top: 20px; text-align: center;">
+          <button type="button" id="addAnotherSubjectBtn" class="btn btn-secondary">
+            <span>➕</span>
+            <span>Add Another Subject to this Syllabus</span>
+          </button>
+        </div>
+
+        <!-- Final Confirmation Action Bar -->
+        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+              <input type="checkbox" id="overwriteCheckbox">
+              <span>Update existing subjects if matching subject codes are found</span>
+            </label>
+          </div>
+
+          <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn btn-secondary" onclick="discardExtractedSyllabus()">
+              <span>✕</span>
+              <span>Discard</span>
+            </button>
+            <button type="button" id="confirmAndSaveBtn" class="btn btn-primary btn-lg">
+              <span>💾</span>
+              <span id="saveBtnText">Confirm & Save Subjects to Hub</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: Manual Subject Creation Form (Alternative Mode) -->
+    <div id="manualSection" class="card" style="display: none; margin-bottom: 28px;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <span>✏️</span>
+        <span>Manually Add Subject to Curriculum</span>
+      </h2>
+
+      <form id="manualSubjectForm">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
+          <div class="form-group">
+            <label class="form-label" for="manualSemSelect">Semester *</label>
+            <select id="manualSemSelect" class="form-control" required>
+              <% for (let s = 1; s <= 8; s++) { %>
+                <option value="<%= s %>" <%= String(selectedSemester) === String(s) ? 'selected' : '' %>>
+                  Semester <%= s %>
+                </option>
+              <% } %>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="manualCodeInput">Subject Code *</label>
+            <input type="text" id="manualCodeInput" class="form-control" placeholder="e.g. CS-401 or PCC-CS401" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="manualNameInput">Subject Name *</label>
+            <input type="text" id="manualNameInput" class="form-control" placeholder="e.g. Database Management Systems" required>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label class="form-label" for="manualDescInput">Subject Description / Overview</label>
+          <textarea id="manualDescInput" class="form-control" rows="2" placeholder="Brief summary of topics covered, prerequisites, and learning objectives..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Units & Topics</label>
+          <div id="manualUnitsContainer" style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Unit 1 Default -->
+            <div class="unit-edit-card card" style="background: var(--bg-primary); padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                  <span class="unit-number-badge">Unit 1</span>
+                  <input type="text" class="form-control manual-unit-title" placeholder="Unit Title (e.g. Introduction & Architecture)" value="Introduction to Subject" required>
+                </div>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;">Topics (one per line or comma separated):</label>
+                <textarea class="form-control manual-unit-topics" rows="3" placeholder="Overview & History&#10;Core Architecture&#10;Key Terminology"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="manualAddUnitBtn" class="btn btn-secondary btn-sm" style="margin-top: 12px;">
+            <span>➕</span>
+            <span>Add Another Unit</span>
+          </button>
+        </div>
+
+        <div style="margin-top: 24px; text-align: right;">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <span>💾</span>
+            <span>Create Subject</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Mode switcher between PDF Upload and Manual Form
+  function switchSyllabusMode(mode) {
+    const uploadSec = document.getElementById('uploadSection');
+    const manualSec = document.getElementById('manualSection');
+    const tabUpload = document.getElementById('tabUploadBtn');
+    const tabManual = document.getElementById('tabManualBtn');
+
+    if (mode === 'manual') {
+      uploadSec.style.display = 'none';
+      manualSec.style.display = 'block';
+      tabUpload.classList.remove('active');
+      tabManual.classList.add('active');
+    } else {
+      uploadSec.style.display = 'block';
+      manualSec.style.display = 'none';
+      tabUpload.classList.add('active');
+      tabManual.classList.remove('active');
+    }
+  }
+
+  // Check URL hash on load
+  if (window.location.hash === '#manual') {
+    switchSyllabusMode('manual');
+  }
+</script>
+
+<%- include('../partials/footer') %>

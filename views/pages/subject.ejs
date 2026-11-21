@@ -1,0 +1,377 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <!-- Subject Header Banner -->
+    <div class="card" style="margin-bottom: 28px; border-top: 5px solid <%= subject.color %>;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 18px;">
+          <div class="subject-icon-box" style="width: 56px; height: 56px; font-size: 2rem; background: <%= subject.gradient %>;">
+            <%= subject.icon %>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span class="subject-code"><%= subject.code %> • Semester <%= subject.semester || 3 %></span>
+              <span class="core-badge" style="background: <%= subject.color %>20; color: <%= subject.color %>; border: 1px solid <%= subject.color %>40;"><%= subject.badge %></span>
+              <% if (subject.isCore) { %>
+                <span class="core-badge" title="Core Semester 3 Foundation Subject">Core CSE</span>
+              <% } else { %>
+                <span class="custom-badge" title="Curriculum Syllabus Subject">Curriculum</span>
+              <% } %>
+            </div>
+            <h1 class="page-title" style="font-size: 1.8rem; margin-top: 4px;"><%= subject.name %></h1>
+            <p style="color: var(--text-secondary); font-size: 0.92rem; margin-top: 4px;"><%= subject.description %></p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <a href="/subject/<%= subject.id %>/add-lecture" class="btn btn-primary">
+            <span>➕</span>
+            <span>Add Lecture</span>
+          </a>
+          <a href="/pyqs?subject=<%= subject.id %>" class="btn btn-secondary">
+            <span>📑</span>
+            <span>PYQ Papers</span>
+          </a>
+          <button type="button" class="btn btn-secondary" id="editSubjectBtn">
+            <span>✏️</span>
+            <span>Edit Subject</span>
+          </button>
+          <% if (!subject.isCore) { %>
+            <button type="button" class="btn btn-danger-outline delete-subject-btn" data-id="<%= subject.id %>" data-name="<%= subject.name %>" title="Delete Subject">
+              <span>🗑️</span>
+            </button>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Subject Progress Bar -->
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-subtle);">
+        <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 8px;">
+          <span style="font-weight: 600;">Syllabus Completion</span>
+          <span id="progress-text-<%= subject.id %>" style="font-weight: 700; color: <%= subject.color %>;">
+            <%= progress ? progress.percentage : 0 %>% (<%= progress ? progress.completedTopicsCount : 0 %> / <%= progress ? progress.totalTopics : 0 %> Topics)
+          </span>
+        </div>
+        <div class="progress-container" style="margin-bottom: 0;">
+          <div id="progress-bar-<%= subject.id %>" class="progress-bar-fill" style="width: <%= progress ? progress.percentage : 0 %>%; background: <%= subject.color %>;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layout: 2 Columns (Left: Unit Checklist + AI Study, Right: Saved Lectures & Materials) -->
+    <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px;">
+      
+      <!-- Left Column: Syllabus Units & Topic Checklist -->
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700;">Syllabus Topic Checklist & AI Study</h2>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 2px;">
+              Check off completed topics or click <strong>AI Study</strong> for instant explanations, notes & questions.
+            </p>
+          </div>
+        </div>
+
+        <% (subject.units || []).forEach(unit => { %>
+          <div class="unit-card">
+            <div class="unit-card-header">
+              <div class="unit-title-group">
+                <span class="unit-number-badge">Unit <%= unit.number %></span>
+                <strong style="font-size: 0.98rem;"><%= unit.title %></strong>
+              </div>
+              <span style="font-size: 0.85rem; color: var(--text-muted);"><%= unit.topics ? unit.topics.length : 0 %> Topics</span>
+            </div>
+
+            <div class="unit-card-body">
+              <ul class="topic-list">
+                <% (unit.topics || []).forEach(topic => { 
+                  const isDone = progress && progress.completedTopicsList && progress.completedTopicsList.includes(topic);
+                  const rankInfo = (typeof pyqAnalytics !== 'undefined' && pyqAnalytics && pyqAnalytics.importanceRanking) 
+                    ? pyqAnalytics.importanceRanking.find(r => r.topic.toLowerCase() === topic.toLowerCase()) 
+                    : null;
+                %>
+                  <li class="topic-item <%= isDone ? 'completed' : '' %>">
+                    <label class="topic-checkbox-label">
+                      <input type="checkbox" class="topic-checkbox" data-subject="<%= subject.id %>" data-topic="<%= topic %>" <%= isDone ? 'checked' : '' %>>
+                      <span><%= topic %></span>
+                    </label>
+
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                      <% if (rankInfo && rankInfo.level === 'HIGH') { %>
+                        <span class="core-badge" style="background: #ef444420; color: #dc2626; font-size: 0.7rem; border: 1px solid #ef444440;" title="<%= rankInfo.evidence %>">
+                          🔥 High Yield (<%= rankInfo.appearances %>x)
+                        </span>
+                      <% } else if (rankInfo && rankInfo.level === 'MEDIUM') { %>
+                        <span class="core-badge" style="background: #f59e0b20; color: #d97706; font-size: 0.7rem; border: 1px solid #f59e0b40;" title="<%= rankInfo.evidence %>">
+                          ⚡ Exam Repeated
+                        </span>
+                      <% } %>
+
+                      <!-- Interconnected Topic Hub Button -->
+                      <button type="button" class="btn btn-sm open-ai-study-btn" 
+                        data-subject-id="<%= subject.id %>"
+                        data-subject-name="<%= subject.name %>"
+                        data-unit-number="<%= unit.number %>"
+                        data-unit-title="<%= unit.title %>"
+                        data-topic="<%= topic %>"
+                        title="Interconnected Topic Hub: Explanation, PYQs, Lectures & Practice"
+                        style="background: var(--accent-light); color: var(--accent-primary); border: 1px solid var(--accent-primary)30; padding: 3px 8px; font-size: 0.75rem; font-weight: 600;">
+                        <span>🔗</span>
+                        <span>Topic Hub</span>
+                      </button>
+
+                      <!-- Transcribe Lecture Button -->
+                      <a href="/transcription?category=<%= subject.id %>&topic=<%= encodeURIComponent(topic) %>&type=curriculum" class="btn btn-secondary btn-sm" title="Transcribe YouTube or uploaded media for this topic" style="padding: 3px 8px; font-size: 0.75rem;">
+                        🎙️ Transcribe Lecture
+                      </a>
+                    </div>
+                  </li>
+                <% }) %>
+              </ul>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+
+      <!-- Right Column: Saved Lectures & Quick Links -->
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <h2 style="font-size: 1.25rem; font-weight: 700;">Saved Lectures (<%= lectures.length %>)</h2>
+          <a href="/library?subject=<%= subject.id %>" style="font-size: 0.82rem; color: var(--accent-primary); font-weight: 600;">View All →</a>
+        </div>
+
+        <% if (lectures.length > 0) { %>
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <% lectures.forEach(lec => { %>
+              <div class="card" style="padding: 16px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                  <span class="unit-number-badge" style="font-size: 0.75rem;">Unit <%= lec.unitNumber %></span>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);"><%= new Date(lec.createdAt).toLocaleDateString() %></span>
+                </div>
+                <h4 style="font-size: 0.98rem; font-weight: 700; margin-bottom: 4px;"><%= lec.topicTitle %></h4>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px;"><%= lec.lectureTitle %></p>
+
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <a href="/library/<%= lec.id %>" class="btn btn-primary btn-sm" style="flex: 1;">Open Notes</a>
+                  <a href="/library/<%= lec.id %>/export/markdown" class="btn btn-secondary btn-sm" title="Markdown">MD</a>
+                  <button type="button" class="btn btn-danger-outline btn-sm delete-lecture-btn" data-id="<%= lec.id %>" data-title="<%= (lec.topicTitle || '').replace(/'/g, "\\'") %>" title="Delete Notes">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <div class="card" style="text-align: center; padding: 32px 16px;">
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 16px;">
+              No lectures added for <%= subject.name %> yet.
+            </p>
+            <a href="/subject/<%= subject.id %>/add-lecture" class="btn btn-primary btn-sm">
+              <span>➕</span>
+              <span>Add First Lecture</span>
+            </a>
+          </div>
+        <% } %>
+
+        <!-- Folder Location Card -->
+        <div class="card" style="margin-top: 24px; padding: 18px; font-size: 0.82rem;">
+          <h4 style="font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <span>📁</span>
+            <span>Local Subject Storage</span>
+          </h4>
+          <p style="color: var(--text-secondary); margin-bottom: 8px;">
+            All materials are stored safely inside your repository:
+          </p>
+          <code style="display: block; padding: 6px 10px; background: var(--bg-primary); border-radius: var(--radius-sm); word-break: break-all;">
+            <%= subject.folder %>/
+          </code>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ==========================================================
+     Interconnected Topic Resource Hub Modal
+     ========================================================== -->
+<div id="aiStudyModal" class="custom-modal-backdrop" style="display: none;">
+  <div class="custom-modal-container" style="max-width: 900px; width: 95%;">
+    <div class="custom-modal-header" style="flex-wrap: wrap; gap: 10px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-size: 1.3rem;">🔗</span>
+          <h3 id="modalTopicTitle" style="font-size: 1.25rem; font-weight: 700; margin: 0;">Topic Academic Hub</h3>
+          <span id="modalTopicBadge" class="core-badge" style="display: none;"></span>
+        </div>
+        <p id="modalTopicSubtitle" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px;">Subject • Unit</p>
+      </div>
+      <button type="button" class="custom-modal-close" onclick="closeAIStudyModal()">✕</button>
+    </div>
+
+    <!-- Modal Feature Tabs: Fully Interconnected Academic Learning Suite -->
+    <div class="ai-study-tabs" style="display: flex; gap: 8px; padding: 12px 20px; background: var(--bg-primary); border-bottom: 1px solid var(--border-color); overflow-x: auto;">
+      <button type="button" class="ai-tab-btn active" data-feature="explanation">
+        <span>💡</span>
+        <span>Concept Explanation</span>
+      </button>
+      <button type="button" class="ai-tab-btn" data-feature="pyqs">
+        <span>📑</span>
+        <span>Past PYQs</span>
+        <span id="modalPyqCount" class="nav-badge" style="margin-left: 4px; font-size: 0.72rem;">0</span>
+      </button>
+      <button type="button" class="ai-tab-btn" data-feature="lectures">
+        <span>🎥</span>
+        <span>Lectures & Notes</span>
+        <span id="modalLecCount" class="nav-badge" style="margin-left: 4px; font-size: 0.72rem;">0</span>
+      </button>
+      <button type="button" class="ai-tab-btn" data-feature="shortNotes">
+        <span>📝</span>
+        <span>Short Notes</span>
+      </button>
+      <button type="button" class="ai-tab-btn" data-feature="importantQuestions">
+        <span>❓</span>
+        <span>Exam Questions</span>
+      </button>
+      <button type="button" class="ai-tab-btn" data-feature="revisionSummary">
+        <span>⚡</span>
+        <span>Quick Revision</span>
+      </button>
+      <button type="button" class="ai-tab-btn" data-feature="practice">
+        <span>🎯</span>
+        <span>Practice & Quiz</span>
+      </button>
+      <button type="button" class="ai-tab-btn" data-feature="askTutor">
+        <span>💬</span>
+        <span>Ask Doubt</span>
+      </button>
+    </div>
+
+    <div class="custom-modal-body" style="padding: 20px; max-height: 65vh; overflow-y: auto;">
+      <!-- Language Toggle for Explanation (Hinglish, Hindi, English) -->
+      <div id="explanationControls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 0.85rem; color: var(--text-secondary);">Select Explanation Language:</span>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-sm btn-secondary lang-toggle-btn active" data-lang="hinglish">🇮🇳 Hinglish</button>
+          <button type="button" class="btn btn-sm btn-secondary lang-toggle-btn" data-lang="hindi">🇮🇳 हिन्दी (Hindi)</button>
+          <button type="button" class="btn btn-sm btn-secondary lang-toggle-btn" data-lang="english">🇬🇧 English</button>
+        </div>
+      </div>
+
+      <!-- Ask Tutor Input Box -->
+      <div id="askTutorControls" style="display: none; margin-bottom: 16px;">
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label">Ask an academic question regarding this syllabus topic:</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="tutorQuestionInput" class="form-control" placeholder="e.g. Can you explain the difference with step-by-step example and memory diagram?">
+            <button type="button" id="sendTutorQuestionBtn" class="btn btn-primary" style="white-space: nowrap;">
+              Ask Tutor
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="aiStudyLoading" style="display: none; text-align: center; padding: 40px 20px;">
+        <div class="spinner" style="margin: 0 auto 12px;"></div>
+        <p style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary);">Synthesizing interconnected academic material...</p>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Grounded on syllabus curriculum and university examination data</span>
+      </div>
+
+      <!-- Markdown Output Box -->
+      <div id="aiStudyContent" class="markdown-body" style="font-size: 0.92rem; line-height: 1.7; display: none;">
+        <!-- AI or Interconnected content injected here -->
+      </div>
+    </div>
+
+    <div class="custom-modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+      <div id="modalFooterStatus" style="font-size: 0.8rem; color: var(--text-muted);">
+        Interconnected Academic Resource Hub
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" id="modalToggleDoneBtn" class="btn btn-secondary btn-sm">
+          <span>✓</span>
+          <span id="modalToggleDoneText">Mark Complete</span>
+        </button>
+        <button type="button" id="saveTopicToNotesBtn" class="btn btn-secondary btn-sm" style="display: none;">
+          <span>💾</span>
+          <span>Save to Study Library</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAIStudyModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================================
+     Edit Subject Modal
+     ========================================================== -->
+<div id="editSubjectModal" class="custom-modal-backdrop" style="display: none;">
+  <div class="custom-modal-container" style="max-width: 650px; width: 95%;">
+    <div class="custom-modal-header">
+      <h3 style="font-size: 1.2rem; font-weight: 700;">Edit Subject: <%= subject.name %></h3>
+      <button type="button" class="custom-modal-close" onclick="closeEditSubjectModal()">✕</button>
+    </div>
+
+    <form id="editSubjectForm">
+      <div class="custom-modal-body" style="padding: 20px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div class="form-group">
+            <label class="form-label" for="editCodeInput">Subject Code *</label>
+            <input type="text" id="editCodeInput" class="form-control" value="<%= subject.code %>" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="editSemesterSelect">Semester *</label>
+            <select id="editSemesterSelect" class="form-control" required>
+              <% for (let s = 1; s <= 8; s++) { %>
+                <option value="<%= s %>" <%= (subject.semester === s) ? 'selected' : '' %>>Semester <%= s %></option>
+              <% } %>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" for="editNameInput">Subject Name *</label>
+          <input type="text" id="editNameInput" class="form-control" value="<%= subject.name %>" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="editDescInput">Description</label>
+          <textarea id="editDescInput" class="form-control" rows="3"><%= subject.description %></textarea>
+        </div>
+      </div>
+
+      <div class="custom-modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeEditSubjectModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function closeAIStudyModal() {
+    document.getElementById('aiStudyModal').style.display = 'none';
+  }
+  function closeEditSubjectModal() {
+    document.getElementById('editSubjectModal').style.display = 'none';
+  }
+  document.getElementById('editSubjectModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeEditSubjectModal();
+  });
+  document.getElementById('aiStudyModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeAIStudyModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeEditSubjectModal();
+      closeAIStudyModal();
+    }
+  });
+</script>
+
+<%- include('../partials/footer') %>

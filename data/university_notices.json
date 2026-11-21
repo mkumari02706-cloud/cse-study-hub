@@ -1,0 +1,31 @@
+[
+  {
+    "studentId": "default_student",
+    "title": "Notice To Delete Test",
+    "universityName": "University",
+    "semester": 3,
+    "noticeType": "Exam Timetable",
+    "noticeDate": "2026-11-21",
+    "fileUrl": null,
+    "fileName": null,
+    "fileType": "text",
+    "rawText": "",
+    "extractedData": {
+      "semester": 3,
+      "timetable": [],
+      "practicalDates": [],
+      "internalDates": [],
+      "assignmentDeadlines": [],
+      "holidays": [],
+      "registrationDeadlines": [],
+      "resultAnnouncements": [],
+      "academicDeadlines": []
+    },
+    "confirmed": true,
+    "confirmedAt": "2026-11-21T06:02:53.149Z",
+    "_id": "university_notices_1795240973149_z2sagi8",
+    "id": "university_notices_1795240973149_z2sagi8",
+    "createdAt": "2026-11-21T06:02:53.149Z",
+    "updatedAt": "2026-11-21T06:02:53.149Z"
+  }
+]

@@ -1,0 +1,438 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <span style="font-size: 1.5rem;">🤖</span>
+          <h1 class="page-title" style="margin: 0;">AI Academic Study Assistant</h1>
+        </div>
+        <p class="page-subtitle">Context-aware CSE academic tutor supporting Hinglish, Hindi, and English with code dry-runs and grounded PDF Q&A.</p>
+      </div>
+
+      <!-- Global Language Switcher -->
+      <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-surface); padding: 6px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">Language:</span>
+        <div class="btn-group" id="globalLangGroup" style="display: flex; gap: 4px;">
+          <button type="button" class="btn btn-sm lang-btn active" data-lang="hinglish" style="padding: 4px 10px; font-size: 0.78rem;">
+            🇮🇳 Hinglish
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary lang-btn" data-lang="hindi" style="padding: 4px 10px; font-size: 0.78rem;">
+            🇮🇳 हिन्दी (Hindi)
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary lang-btn" data-lang="english" style="padding: 4px 10px; font-size: 0.78rem;">
+            🇬🇧 English
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode Selector Navigation Tabs -->
+    <div class="semester-filter-container" style="margin-bottom: 24px;">
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="mode-tab-btn active btn btn-primary" data-mode="doubt">
+          <span>💡</span>
+          <span>Step-by-Step Doubt Solver</span>
+        </button>
+        <button type="button" class="mode-tab-btn btn btn-secondary" data-mode="code">
+          <span>💻</span>
+          <span>Code Explainer & Dry-Run</span>
+        </button>
+        <button type="button" class="mode-tab-btn btn btn-secondary" data-mode="pdf">
+          <span>📄</span>
+          <span>PDF-Based Document Q&A</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mode 1: Academic Doubt Solver -->
+    <div id="modeDoubt" class="assistant-mode-panel">
+      <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+          <span>🎯</span>
+          <span>Ask Any Syllabus Doubt or University Concept</span>
+        </h2>
+
+        <form id="doubtForm">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Subject</label>
+              <select id="doubtSubjectSelect" class="form-control">
+                <option value="">General Computer Science</option>
+                <% subjects.forEach(sub => { %>
+                  <option value="<%= sub.id %>" <%= selectedSubjectId === sub.id ? 'selected' : '' %>><%= sub.name %> (Sem <%= sub.semester || 3 %>)</option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Topic Context (Optional)</label>
+              <input type="text" id="doubtTopicInput" class="form-control" placeholder="e.g. Banker's Algorithm, Dynamic Binding" value="<%= selectedTopic %>">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Your Academic Question / Doubt *</label>
+            <textarea id="doubtQuestionInput" class="form-control" rows="3" placeholder="e.g. Explain how virtual memory handles page faults step-by-step with an example, and what is Belady's anomaly?" required></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+              ⚡ Responses include intuitive analogy, technical definition, architecture flow, and exam tip.
+            </div>
+            <button type="submit" id="askDoubtBtn" class="btn btn-primary">
+              <span>🚀</span>
+              <span>Ask Academic Tutor</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Result Card -->
+      <div id="doubtResultCard" class="card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+          <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px;">
+            <span>📖</span>
+            <span>Tutor Explanation</span>
+          </h3>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyDoubtResult()">
+            📋 Copy Explanation
+          </button>
+        </div>
+        <div id="doubtLoading" style="display: none; text-align: center; padding: 32px;">
+          <div class="spinner" style="margin: 0 auto 10px;"></div>
+          <p style="font-weight: 600;">Analyzing academic concepts and generating structured explanation...</p>
+        </div>
+        <div id="doubtOutput" class="markdown-body" style="font-size: 0.94rem; line-height: 1.7;"></div>
+      </div>
+    </div>
+
+    <!-- Mode 2: Code Explainer & Dry-Run -->
+    <div id="modeCode" class="assistant-mode-panel" style="display: none;">
+      <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+          <span>💻</span>
+          <span>Code Explanation, Complexity & Dry-Run Trace</span>
+        </h2>
+
+        <form id="codeExplainerForm">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 14px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Programming Language</label>
+              <select id="codeLanguageSelect" class="form-control">
+                <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="c">C</option>
+                <option value="python">Python</option>
+                <option value="sql">SQL</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Algorithm / Problem Title</label>
+              <input type="text" id="codeTopicInput" class="form-control" placeholder="e.g. QuickSort Partition, Producer-Consumer Semaphores">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Source Code to Analyze *</label>
+            <textarea id="codeInputText" class="form-control" rows="8" style="font-family: monospace; font-size: 0.88rem;" placeholder="public class QuickSort {
+    int partition(int arr[], int low, int high) {
+        int pivot = arr[high];
+        int i = (low - 1);
+        for (int j = low; j < high; j++) {
+            if (arr[j] < pivot) {
+                i++;
+                int temp = arr[i]; arr[i] = arr[j]; arr[j] = temp;
+            }
+        }
+        int temp = arr[i + 1]; arr[i + 1] = arr[high]; arr[high] = temp;
+        return i + 1;
+    }
+}" required></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" id="explainCodeBtn" class="btn btn-primary">
+              <span>🔍</span>
+              <span>Explain Code & Generate Dry Run</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Result Card -->
+      <div id="codeResultCard" class="card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+          <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0;">Execution Breakdown & Complexity</h3>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyCodeResult()">📋 Copy</button>
+        </div>
+        <div id="codeLoading" style="display: none; text-align: center; padding: 32px;">
+          <div class="spinner" style="margin: 0 auto 10px;"></div>
+          <p style="font-weight: 600;">Tracing execution flow, variable states, and complexities...</p>
+        </div>
+        <div id="codeOutput" class="markdown-body" style="font-size: 0.94rem; line-height: 1.7;"></div>
+      </div>
+    </div>
+
+    <!-- Mode 3: PDF Document Q&A -->
+    <div id="modePdf" class="assistant-mode-panel" style="display: none;">
+      <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+          <span>📄</span>
+          <span>Grounded PDF Document Q&A (Textbook / Notes / Research Paper)</span>
+        </h2>
+
+        <form id="pdfQaForm" enctype="multipart/form-data">
+          <div class="form-group">
+            <label class="form-label">Upload PDF Document (Digital or Scanned) *</label>
+            <input type="file" id="assistantPdfInput" class="form-control" accept=".pdf,.txt">
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+              Uploaded document text is retained in memory for multiple follow-up queries.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Question on this Document *</label>
+            <input type="text" id="pdfQuestionInput" class="form-control" placeholder="e.g. What theorem is proved in Section 3, and what are its preconditions?" required>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" id="askPdfBtn" class="btn btn-primary">
+              <span>💬</span>
+              <span>Query Document</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Result Card -->
+      <div id="pdfResultCard" class="card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+          <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0;">Grounded Document Answer</h3>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyPdfResult()">📋 Copy</button>
+        </div>
+        <div id="pdfLoading" style="display: none; text-align: center; padding: 32px;">
+          <div class="spinner" style="margin: 0 auto 10px;"></div>
+          <p style="font-weight: 600;">Extracting document text and verifying academic context...</p>
+        </div>
+        <div id="pdfOutput" class="markdown-body" style="font-size: 0.94rem; line-height: 1.7;"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  let currentLanguage = 'hinglish';
+  let cachedPdfText = '';
+
+  // Language buttons
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.lang-btn').forEach(b => {
+        b.classList.remove('active');
+        b.classList.add('btn-secondary');
+      });
+      btn.classList.add('active');
+      btn.classList.remove('btn-secondary');
+      currentLanguage = btn.dataset.lang;
+    });
+  });
+
+  // Mode switching
+  document.querySelectorAll('.mode-tab-btn').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.mode-tab-btn').forEach(t => {
+        t.classList.remove('active', 'btn-primary');
+        t.classList.add('btn-secondary');
+      });
+      tab.classList.add('active', 'btn-primary');
+      tab.classList.remove('btn-secondary');
+
+      const mode = tab.dataset.mode;
+      document.getElementById('modeDoubt').style.display = mode === 'doubt' ? 'block' : 'none';
+      document.getElementById('modeCode').style.display = mode === 'code' ? 'block' : 'none';
+      document.getElementById('modePdf').style.display = mode === 'pdf' ? 'block' : 'none';
+    });
+  });
+
+  // Doubt Form Submit
+  const doubtForm = document.getElementById('doubtForm');
+  doubtForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const subjectId = document.getElementById('doubtSubjectSelect').value;
+    const topicName = document.getElementById('doubtTopicInput').value.trim();
+    const question = document.getElementById('doubtQuestionInput').value.trim();
+    const btn = document.getElementById('askDoubtBtn');
+    const resultCard = document.getElementById('doubtResultCard');
+    const loading = document.getElementById('doubtLoading');
+    const output = document.getElementById('doubtOutput');
+
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Thinking...';
+    resultCard.style.display = 'block';
+    loading.style.display = 'block';
+    output.innerHTML = '';
+
+    try {
+      const res = await fetch('/assistant/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectId, topicName, question, language: currentLanguage })
+      });
+      const data = await res.json();
+      loading.style.display = 'none';
+      if (data.success) {
+        output.innerHTML = formatMarkdown(data.answer);
+      } else {
+        output.innerHTML = `<div class="alert alert-danger">⚠️ Error: ${data.error}</div>`;
+      }
+    } catch (err) {
+      loading.style.display = 'none';
+      output.innerHTML = `<div class="alert alert-danger">⚠️ Failed to connect: ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🚀</span><span>Ask Academic Tutor</span>';
+    }
+  });
+
+  // Code Explainer Form Submit
+  const codeForm = document.getElementById('codeExplainerForm');
+  codeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const programmingLanguage = document.getElementById('codeLanguageSelect').value;
+    const topicName = document.getElementById('codeTopicInput').value.trim();
+    const code = document.getElementById('codeInputText').value.trim();
+    const btn = document.getElementById('explainCodeBtn');
+    const resultCard = document.getElementById('codeResultCard');
+    const loading = document.getElementById('codeLoading');
+    const output = document.getElementById('codeOutput');
+
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Analyzing Code...';
+    resultCard.style.display = 'block';
+    loading.style.display = 'block';
+    output.innerHTML = '';
+
+    try {
+      const res = await fetch('/assistant/api/explain-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, topicName, programmingLanguage })
+      });
+      const data = await res.json();
+      loading.style.display = 'none';
+      if (data.success) {
+        output.innerHTML = formatMarkdown(data.explanation);
+      } else {
+        output.innerHTML = `<div class="alert alert-danger">⚠️ Error: ${data.error}</div>`;
+      }
+    } catch (err) {
+      loading.style.display = 'none';
+      output.innerHTML = `<div class="alert alert-danger">⚠️ Failed: ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🔍</span><span>Explain Code & Generate Dry Run</span>';
+    }
+  });
+
+  // PDF QA Form Submit
+  const pdfForm = document.getElementById('pdfQaForm');
+  pdfForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('assistantPdfInput');
+    const question = document.getElementById('pdfQuestionInput').value.trim();
+    const btn = document.getElementById('askPdfBtn');
+    const resultCard = document.getElementById('pdfResultCard');
+    const loading = document.getElementById('pdfLoading');
+    const output = document.getElementById('pdfOutput');
+
+    if (!cachedPdfText && (!fileInput.files || !fileInput.files[0])) {
+      alert('Please upload a PDF file or document.');
+      return;
+    }
+
+    const formData = new FormData();
+    if (fileInput.files && fileInput.files[0]) {
+      formData.append('assistantPdf', fileInput.files[0]);
+    }
+    formData.append('question', question);
+    formData.append('language', currentLanguage);
+    if (cachedPdfText) {
+      formData.append('existingPdfText', cachedPdfText);
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Reading PDF...';
+    resultCard.style.display = 'block';
+    loading.style.display = 'block';
+    output.innerHTML = '';
+
+    try {
+      const res = await fetch('/assistant/api/pdf-qa', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      loading.style.display = 'none';
+      if (data.success) {
+        if (data.pdfText) cachedPdfText = data.pdfText;
+        output.innerHTML = formatMarkdown(data.answer);
+      } else {
+        output.innerHTML = `<div class="alert alert-danger">⚠️ Error: ${data.error}</div>`;
+      }
+    } catch (err) {
+      loading.style.display = 'none';
+      output.innerHTML = `<div class="alert alert-danger">⚠️ Failed: ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>💬</span><span>Query Document</span>';
+    }
+  });
+
+  // Basic markdown formatter helper
+  function formatMarkdown(text) {
+    if (!text) return '';
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Code blocks
+    html = html.replace(/```([a-z0-9]*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Headers
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    // Bold
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Bullet lists
+    html = html.replace(/^\s*[-*]\s+(.*)$/gim, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    // Line breaks
+    html = html.replace(/\n\n/g, '<br><br>');
+
+    return html;
+  }
+
+  function copyDoubtResult() {
+    navigator.clipboard.writeText(document.getElementById('doubtOutput').innerText);
+    alert('Explanation copied to clipboard!');
+  }
+  function copyCodeResult() {
+    navigator.clipboard.writeText(document.getElementById('codeOutput').innerText);
+    alert('Code breakdown copied to clipboard!');
+  }
+  function copyPdfResult() {
+    navigator.clipboard.writeText(document.getElementById('pdfOutput').innerText);
+    alert('PDF response copied to clipboard!');
+  }
+</script>
+
+<%- include('../partials/footer') %>

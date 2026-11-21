@@ -1,0 +1,158 @@
+<%- include('../partials/header') %>
+<%- include('../partials/sidebar') %>
+
+<div class="main-wrapper">
+  <%- include('../partials/navbar') %>
+
+  <main class="content-container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Study Library</h1>
+        <p class="page-subtitle">Access your saved lecture notes, Hinglish explanations, code dry runs, and export materials.</p>
+      </div>
+      <div>
+        <a href="/add-lecture" class="btn btn-primary">
+          <span>➕</span>
+          <span>Add Lecture</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="card" style="margin-bottom: 24px; padding: 16px 20px;">
+      <form action="/library" method="GET" style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+        <div style="flex: 1; min-width: 240px;">
+          <input type="text" name="q" class="form-control" placeholder="Search by topic, keyword, or lecture title..." value="<%= searchQuery %>">
+        </div>
+
+        <div style="min-width: 200px;">
+          <select name="subject" class="form-control" onchange="this.form.submit()">
+            <option value="">All Subjects</option>
+            <% subjects.forEach(sub => { %>
+              <option value="<%= sub.id %>" <%= selectedSubject === sub.id ? 'selected' : '' %>><%= sub.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <button type="submit" class="btn btn-secondary">Filter</button>
+        <% if (selectedSubject || searchQuery) { %>
+          <a href="/library" class="btn btn-secondary" title="Clear Filters">Clear</a>
+        <% } %>
+      </form>
+    </div>
+
+    <!-- Lectures Grid -->
+    <% if (lectures && lectures.length > 0) { %>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+        <% lectures.forEach(lec => { %>
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                <span class="unit-number-badge"><%= lec.subjectName %></span>
+                <span style="font-size: 0.78rem; color: var(--text-muted);"><%= new Date(lec.createdAt).toLocaleDateString() %></span>
+              </div>
+
+              <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;"><%= lec.topicTitle %></h3>
+              <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">
+                <%= lec.lectureTitle %> (Unit <%= lec.unitNumber %>)
+              </p>
+
+              <!-- Tags / Materials Present -->
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px;">
+                <% if (lec.materials && lec.materials.hinglish) { %>
+                  <span style="font-size: 0.75rem; background: rgba(245, 158, 11, 0.15); color: #b45309; padding: 2px 8px; border-radius: var(--radius-sm);">🇮🇳 Hinglish</span>
+                <% } %>
+                <% if (lec.materials && lec.materials.examNotes) { %>
+                  <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.15); color: #1d4ed8; padding: 2px 8px; border-radius: var(--radius-sm);">📖 Notes</span>
+                <% } %>
+                <% if (lec.materials && lec.materials.importantQuestions) { %>
+                  <span style="font-size: 0.75rem; background: rgba(139, 92, 246, 0.15); color: #6d28d9; padding: 2px 8px; border-radius: var(--radius-sm);">❓ Questions</span>
+                <% } %>
+                <% if (lec.materials && lec.materials.codeExamples) { %>
+                  <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.15); color: #047857; padding: 2px 8px; border-radius: var(--radius-sm);">💻 Code</span>
+                <% } %>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <a href="/library/<%= lec.id %>" class="btn btn-primary btn-sm" style="flex: 1; min-width: 110px;">Open Notes</a>
+              <a href="/library/<%= lec.id %>/export/markdown" class="btn btn-secondary btn-sm" title="Export as Markdown">MD</a>
+              <a href="/library/<%= lec.id %>/export/print" target="_blank" class="btn btn-secondary btn-sm" title="Print to PDF">PDF</a>
+              <button type="button" class="btn btn-danger-outline btn-sm delete-lecture-btn" data-id="<%= lec.id %>" data-title="<%= (lec.topicTitle || '').replace(/'/g, "\\'") %>" title="Delete Notes">
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <div class="card" style="text-align: center; padding: 50px 20px;">
+        <div style="font-size: 3rem; margin-bottom: 12px;">🔍</div>
+        <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 8px;">No Study Materials Found</h3>
+        <p style="color: var(--text-secondary); max-width: 480px; margin: 0 auto 20px;">
+          <% if (searchQuery || selectedSubject) { %>
+            No notes match your filter criteria. Try clearing filters or searching for another topic.
+          <% } else { %>
+            Your library is empty right now. Add a YouTube lecture or upload notes to get started!
+          <% } %>
+        </p>
+        <a href="/add-lecture" class="btn btn-primary">
+          <span>➕</span>
+          <span>Add New Lecture</span>
+        </a>
+      </div>
+    <% } %>
+
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('.delete-lecture-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = btn.dataset.id;
+      const title = btn.dataset.title || 'this study note';
+
+      const confirmed = await window.showConfirmDialog({
+        title: 'Delete Study Note',
+        message: `Are you sure you want to delete "${title}"? This will permanently remove the study materials and markdown files.`,
+        confirmText: 'Confirm Delete'
+      });
+      if (!confirmed) return;
+
+      btn.disabled = true;
+      const origText = btn.innerHTML;
+      btn.innerHTML = '⏳ Deleting...';
+
+      try {
+        const res = await fetch(`/library/api/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          window.showToast('Study note deleted successfully.', 'success');
+          const card = btn.closest('.card');
+          if (card) {
+            card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+              if (card.parentNode) card.parentNode.removeChild(card);
+              window.location.reload();
+            }, 350);
+          } else {
+            window.location.reload();
+          }
+        } else {
+          window.showToast(`Delete failed: ${data.error}`, 'error');
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
+      } catch (err) {
+        window.showToast(`Error: ${err.message}`, 'error');
+        btn.disabled = false;
+        btn.innerHTML = origText;
+      }
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>

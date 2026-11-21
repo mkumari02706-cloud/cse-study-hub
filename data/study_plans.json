@@ -1,0 +1,38 @@
+[
+  {
+    "studentId": "default_student",
+    "title": "DevOps & Site Reliability Engineering Roadmap Learning Plan",
+    "planType": "explore_roadmap",
+    "targetId": "devops",
+    "targetName": "DevOps & Site Reliability Engineering",
+    "startDate": "2026-11-21",
+    "targetDate": "2026-12-31",
+    "dailyAvailableHours": 2,
+    "status": "active",
+    "_id": "study_plans_1795236698824_9yz1mm0",
+    "id": "study_plans_1795236698824_9yz1mm0",
+    "createdAt": "2026-11-21T04:51:38.824Z",
+    "updatedAt": "2026-11-21T10:00:06.984Z",
+    "totalTasks": 11,
+    "completedTasks": 0,
+    "progressPercentage": 0
+  },
+  {
+    "studentId": "default_student",
+    "title": "Artificial Intelligence & Machine Learning Roadmap Learning Plan",
+    "planType": "explore_roadmap",
+    "targetId": "ai_ml",
+    "targetName": "Artificial Intelligence & Machine Learning",
+    "startDate": "2026-11-21",
+    "targetDate": "2027-01-20",
+    "dailyAvailableHours": 2,
+    "status": "active",
+    "_id": "study_plans_1795237317097_3fv23j8",
+    "id": "study_plans_1795237317097_3fv23j8",
+    "createdAt": "2026-11-21T05:01:57.097Z",
+    "updatedAt": "2026-11-21T05:01:57.111Z",
+    "totalTasks": 14,
+    "completedTasks": 0,
+    "progressPercentage": 0
+  }
+]
