@@ -11,7 +11,7 @@ const progressService = require('../services/progressService');
 
 const upload = multer({
   dest: path.join(ROOT_DIR, 'uploads'),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
 // Add Lecture Page
@@ -56,14 +56,43 @@ router.post('/api/transcript', async (req, res) => {
 });
 
 // API: Upload manual transcript file
-router.post('/api/upload-transcript-file', upload.single('transcriptFile'), (req, res) => {
+router.post('/api/upload-transcript-file', upload.single('transcriptFile'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded.' });
     }
-    const content = fs.readFileSync(req.file.path, 'utf-8');
-    fs.unlinkSync(req.file.path); // clean up temp
-    res.json({ success: true, text: content });
+    const transcriptionService = require('../services/transcriptionService');
+    const videoId = req.body.videoId || null;
+    const result = await transcriptionService.transcribeTextFile({
+      file: req.file,
+      fileName: req.file.originalname,
+      videoId
+    });
+    res.json({
+      success: true,
+      text: result.fullText || result.timestampedText,
+      fullText: result.fullText,
+      timestampedText: result.timestampedText,
+      wordCount: result.wordCount,
+      timestampedTranscript: result.timestampedTranscript
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Upload Media (Audio/Video Speech-to-Text)
+router.post('/api/upload-media', upload.single('mediaFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No media file uploaded.' });
+    }
+    const transcriptionService = require('../services/transcriptionService');
+    const result = await transcriptionService.transcribeMediaFile({
+      file: req.file,
+      language: req.body.language || 'en'
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -157,6 +186,17 @@ router.post('/api/save-lecture', async (req, res) => {
       transcriptText,
       studyMaterials: studyMaterials || {}
     });
+
+    if (videoId && transcriptText) {
+      youtubeService.cacheTranscript(videoId, {
+        fullText: transcriptText,
+        timestampedText: transcriptText,
+        metadata: {
+          title: lectureTitle || topicTitle,
+          videoUrl: videoUrl || `https://www.youtube.com/watch?v=${videoId}`
+        }
+      });
+    }
 
     // Optionally mark topic completed in progress tracker
     if (markTopicComplete && topicTitle) {

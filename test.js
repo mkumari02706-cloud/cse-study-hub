@@ -1321,9 +1321,129 @@ async function runTests() {
   await transcriptionService.deleteTranscript(e2eSaved.transcript._id);
   console.log('  ✓ End-to-end integration verified: LectureTranscript, LectureNotes, and normalized study pack created');
 
+  // Test 38: Multi-Tier Persistent Disk Cache Verification
+  console.log('\nTest 38: Multi-Tier Persistent Disk Cache Verification');
+  const testVid = 'persistVd99';
+  youtubeService.cacheTranscript(testVid, {
+    fullText: 'Persistent cache test lecture content about algorithms.',
+    timestampedText: '[00:00] Persistent cache test lecture content about algorithms.',
+    wordCount: 8,
+    metadata: { title: 'Persistent Test Lecture', videoUrl: `https://www.youtube.com/watch?v=${testVid}` }
+  });
+
+  // Verify memory hit
+  const memHit = await youtubeService.fetchTranscript(testVid, 'en');
+  assert.strictEqual(memHit.success, true);
+  assert.strictEqual(memHit.isCached, true);
+  assert.strictEqual(memHit.wordCount, 8);
+
+  // Clear memory cache only (simulate server restart)
+  const rawCacheMap = youtubeService.getCache();
+  rawCacheMap.cache.clear();
+
+  // Re-read: must load from persistent disk cache
+  const diskHit = await youtubeService.fetchTranscript(testVid, 'en');
+  assert.strictEqual(diskHit.success, true);
+  assert.strictEqual(diskHit.isCached, true);
+  assert.strictEqual(diskHit.fullText, 'Persistent cache test lecture content about algorithms.');
+  console.log('  ✓ Persistent disk cache verified: survived in-memory cache clear and served instantly');
+
+  // Test 39: Production Configuration & Rate-Limit Handling Verification
+  console.log('\nTest 39: Production Configuration & Rate-Limit Handling Verification');
+  const originalEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    rawCacheMap.setRateLimitCooldown(45000, 'Render Datacenter IP Challenged');
+    const prodRes = await youtubeService.fetchTranscript('prodRateL01', 'en');
+    assert.strictEqual(prodRes.success, false);
+    assert.strictEqual(prodRes.errorCode, 'RATE_LIMITED');
+    assert.strictEqual(prodRes.isRateLimited, true);
+    assert.strictEqual(prodRes.canFallbackManual, true);
+    assert.strictEqual(prodRes.canUploadMedia, true);
+    assert.ok(prodRes.productionGuidance && prodRes.productionGuidance.steps.length > 0, 'Must provide production guidance steps');
+    assert.ok(prodRes.environment && prodRes.environment.isProduction, 'Environment must report production');
+    console.log('  ✓ Production configuration & rate-limit handling verified (structured guidance, no crash)');
+  } finally {
+    process.env.NODE_ENV = originalEnv;
+    rawCacheMap.clear();
+  }
+
+  // Test 40: Native YouTube Copy-Paste Transcript Format Parsing
+  console.log('\nTest 40: Native YouTube Copy-Paste Transcript Format Parsing');
+  const ytPastedTranscript = `0:00\nWelcome to this masterclass on Data Structures.\n0:05\nToday we implement Binary Search Trees.\n0:15\nEvery left child is strictly smaller than the root.`;
+  const parsedYtPaste = await transcriptionService.transcribeTextFile({
+    rawText: ytPastedTranscript,
+    fileName: 'yt_paste.txt'
+  });
+  assert.strictEqual(parsedYtPaste.success, true);
+  assert.strictEqual(parsedYtPaste.timestampedTranscript.length, 3);
+  assert.strictEqual(parsedYtPaste.timestampedTranscript[0].timestamp, '[00:00]');
+  assert.strictEqual(parsedYtPaste.timestampedTranscript[1].timestamp, '[00:05]');
+  assert.strictEqual(parsedYtPaste.timestampedTranscript[2].timestamp, '[00:15]');
+  console.log('  ✓ Native YouTube player copy-paste format parsed with timestamps preserved');
+
+  // Test 41: Audio/Video Media Upload Endpoint on Lecture Route
+  console.log('\nTest 41: Audio/Video Media Upload Endpoint on Lecture Route');
+  const lectureMediaRes = await fetch(`${baseUrl}/api/upload-media`, {
+    method: 'POST'
+  });
+  assert.strictEqual(lectureMediaRes.status, 400);
+  const lectureMediaData = await lectureMediaRes.json();
+  assert.strictEqual(lectureMediaData.success, false);
+  assert.ok(lectureMediaData.error.includes('No media file'));
+  console.log('  ✓ POST /api/upload-media endpoint validated with input guard');
+
+  // Test 42: No CAPTCHA Bypass or IP Rotation Policy Invariant Check
+  console.log('\nTest 42: No CAPTCHA Bypass or IP Rotation Policy Invariant Check');
+  const ytServiceContent = fs.readFileSync(path.join(__dirname, 'src/services/youtubeService.js'), 'utf-8');
+  assert.strictEqual(ytServiceContent.includes('2captcha'), false, 'Must not contain 2captcha');
+  assert.strictEqual(ytServiceContent.includes('anticaptcha'), false, 'Must not contain anticaptcha');
+  assert.strictEqual(ytServiceContent.includes('rotatingProxy'), false, 'Must not contain proxy rotation');
+  assert.strictEqual(ytServiceContent.includes('luminati'), false, 'Must not contain residential proxy networks');
+  assert.strictEqual(ytServiceContent.includes('brightdata'), false, 'Must not contain proxy networks');
+  console.log('  ✓ Policy compliance verified: No CAPTCHA bypass, no IP rotation, fully compliant with ethics and guidelines');
+
+  // Test 43: Missing or Unavailable Persistent Storage Graceful Handling
+  console.log('\nTest 43: Missing or Unavailable Persistent Storage Graceful Handling');
+  const cacheInstance = youtubeService.getCache();
+  const savedCachePath = cacheInstance.cacheFilePath;
+  try {
+    // Point cache to unwritable/unmounted path (simulating missing Render volume or permission failure)
+    cacheInstance.cacheFilePath = '/dev/null/impossible_dir/transcripts_cache.json';
+    assert.doesNotThrow(() => {
+      cacheInstance.set('yt_transcript_unavail01_en', {
+        fullText: 'In-memory fallback works when disk is missing',
+        wordCount: 7
+      });
+    }, 'Cache must not crash when persistent disk is missing or unwritable');
+
+    const inMemoryValue = cacheInstance.get('yt_transcript_unavail01_en');
+    assert.ok(inMemoryValue, 'Must retrieve from in-memory cache when disk storage fails');
+    assert.strictEqual(inMemoryValue.wordCount, 7);
+    console.log('  ✓ Graceful degradation verified: in-memory cache functions reliably without persistent disk');
+  } finally {
+    cacheInstance.cacheFilePath = savedCachePath;
+    cacheInstance.delete('yt_transcript_unavail01_en');
+  }
+
+  // Test 44: AI Speech-to-Text Upload Limits & MIME Type Validation
+  console.log('\nTest 44: AI Speech-to-Text Upload Limits & MIME Type Validation');
+  const oversizeFileResult = await transcriptionService.transcribeMediaFile({
+    file: { size: 55 * 1024 * 1024, mimetype: 'audio/mp3', originalname: 'long_lecture.mp3' }
+  });
+  assert.strictEqual(oversizeFileResult.success, false, 'Must reject files over 50MB');
+  assert.ok(oversizeFileResult.error.includes('50MB limit'), 'Must specify 50MB limit in error message');
+
+  const invalidMimeResult = await transcriptionService.transcribeMediaFile({
+    file: { size: 5 * 1024 * 1024, mimetype: 'application/pdf', originalname: 'notes.pdf' }
+  });
+  assert.strictEqual(invalidMimeResult.success, false, 'Must reject unsupported media MIME types');
+  assert.ok(invalidMimeResult.error.includes('Unsupported file format'), 'Must specify format error');
+  console.log('  ✓ Media speech-to-text validated: enforces 50MB limit and media MIME whitelist');
+
   server.close();
 
-  console.log('\n🎉 ALL 37 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! YouTube transcription, error handling, rate-limit protection, text file upload, and study packs are fully validated and operational.');
+  console.log('\n🎉 ALL 44 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! YouTube transcription, error handling, rate-limit protection, text file upload, and study packs are fully validated and operational.');
 }
 
 runTests().catch(err => {

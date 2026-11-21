@@ -70,8 +70,9 @@ class TranscriptionService {
 
   /**
    * Parses manual text or uploaded subtitle/text files (.txt, .srt, .vtt)
+   * Also recognizes native YouTube player transcript copy format (timestamp on line above or inline)
    */
-  async transcribeTextFile({ file, rawText, fileName }) {
+  async transcribeTextFile({ file, rawText, fileName, videoId }) {
     let content = '';
     let name = fileName || 'transcript.txt';
 
@@ -103,8 +104,9 @@ class TranscriptionService {
 
     // Check for SRT/VTT timecode pattern: 00:01:20,000 --> 00:01:25,000 or 01:20.000 --> 01:25.000
     const timecodeRegex = /(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.]\d{3}\s*-->/;
-    // Check for standard bracketed timestamp pattern: [01:23]
-    const bracketRegex = /\[(\d{1,2}):(\d{2})\]/;
+    const ytTimecodeOnly = /^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})$/;
+    const ytTimecodeStart = /^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s+(.+)$/;
+    const bracketRegex = /^\[(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\]\s*(.*)$/;
 
     let isSrtOrVtt = lines.some(l => timecodeRegex.test(l));
 
@@ -140,20 +142,62 @@ class TranscriptionService {
         });
       }
     } else {
-      // Check line-by-line bracketed timestamps
+      // Check line-by-line: bracketed, inline timecode, or standalone timecode line (YouTube player copy)
+      let pendingTime = null;
+
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        const bMatch = trimmed.match(/^\[(\d{1,2}):(\d{2})\]\s*(.*)$/);
+        // Case 1: Standard bracketed: [01:23] or [0:01:23]
+        const bMatch = trimmed.match(bracketRegex);
         if (bMatch) {
-          const mins = parseInt(bMatch[1], 10);
-          const secs = parseInt(bMatch[2], 10);
+          const hours = parseInt(bMatch[1] || '0', 10);
+          const mins = parseInt(bMatch[2], 10) + hours * 60;
+          const secs = parseInt(bMatch[3], 10);
           parsedItems.push({
-            timestamp: `[${bMatch[1].padStart(2, '0')}:${bMatch[2].padStart(2, '0')}]`,
+            timestamp: `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`,
             offsetSec: mins * 60 + secs,
-            text: bMatch[3]
+            text: bMatch[4]
           });
+          continue;
+        }
+
+        // Case 2: Start of line timecode: 0:05 Text
+        const startMatch = trimmed.match(ytTimecodeStart);
+        if (startMatch) {
+          const hours = parseInt(startMatch[1] || '0', 10);
+          const mins = parseInt(startMatch[2], 10) + hours * 60;
+          const secs = parseInt(startMatch[3], 10);
+          parsedItems.push({
+            timestamp: `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`,
+            offsetSec: mins * 60 + secs,
+            text: startMatch[4]
+          });
+          continue;
+        }
+
+        // Case 3: Timecode alone on its own line (YouTube player copy format)
+        const onlyTimeMatch = trimmed.match(ytTimecodeOnly);
+        if (onlyTimeMatch) {
+          const hours = parseInt(onlyTimeMatch[1] || '0', 10);
+          const mins = parseInt(onlyTimeMatch[2], 10) + hours * 60;
+          const secs = parseInt(onlyTimeMatch[3], 10);
+          pendingTime = {
+            timestamp: `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`,
+            offsetSec: mins * 60 + secs
+          };
+          continue;
+        }
+
+        if (pendingTime) {
+          parsedItems.push({
+            timestamp: pendingTime.timestamp,
+            offsetSec: pendingTime.offsetSec,
+            text: trimmed
+          });
+          pendingTime = null;
+          continue;
         }
       }
     }
@@ -184,6 +228,15 @@ class TranscriptionService {
     }
 
     const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+
+    if (videoId) {
+      youtubeService.cacheTranscript(videoId, {
+        fullText,
+        timestampedText,
+        wordCount,
+        rawItems: parsedItems
+      });
+    }
 
     return {
       success: true,
@@ -1189,6 +1242,18 @@ class TranscriptionService {
       if (markCompleted) {
         progressService.toggleTopic(categoryId, topicTitle);
       }
+    }
+
+    if (videoId && (rawText || (Array.isArray(timestampedTranscript) && timestampedTranscript.length > 0))) {
+      youtubeService.cacheTranscript(videoId, {
+        fullText: rawText,
+        timestampedText: Array.isArray(timestampedTranscript) ? timestampedTranscript.map(p => `${p.timestamp} ${p.text}`).join('\n') : rawText,
+        wordCount,
+        metadata: {
+          title: finalTitle,
+          videoUrl: sourceUrl || `https://www.youtube.com/watch?v=${videoId}`
+        }
+      });
     }
 
     return {

@@ -123,10 +123,43 @@ document.addEventListener('DOMContentLoaded', () => {
           // Enable AI Generator buttons
           enableAIGenerator();
         } else {
-          // Clear error handling with manual fallback
-          const errorMsg = data.error || 'Captions are unavailable for this video.';
-          const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
-          showStatus(`⚠️ ${errorMsg}${detailMsg}`, 'warning');
+          // Autofill lecture title if metadata was retrieved
+          if (data.metadata && data.metadata.title) {
+            currentVideoMetadata = data.metadata;
+            const titleInput = document.getElementById('lectureTitleInput');
+            if (titleInput && !titleInput.value) {
+              titleInput.value = data.metadata.title;
+            }
+          }
+
+          // Render clear status and guide user to manual / cloud-supported fallback
+          if (data.errorCode === 'RATE_LIMITED') {
+            const videoId = data.videoId || '';
+            const ytUrl = (data.productionGuidance && data.productionGuidance.videoUrl) || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : url);
+            const rateLimitHtml = `
+              <div style="line-height: 1.5;">
+                <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                  <span>⏳ YouTube Cloud Verification Required</span>
+                </div>
+                <p style="margin: 0 0 6px;">${data.error}</p>
+                <p style="font-size: 0.83rem; margin: 0 0 10px; opacity: 0.95;">
+                  ${data.details || 'YouTube restricts automated caption queries from cloud hosting data centers (Render, AWS, GCP).'}
+                </p>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 0.8rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                    <span>▶️</span>
+                    <span>Open Video on YouTube ↗</span>
+                  </a>
+                </div>
+              </div>
+            `;
+            showStatus(rateLimitHtml, 'warning');
+          } else {
+            const errorMsg = data.error || 'Captions are unavailable for this video.';
+            const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
+            showStatus(`⚠️ ${errorMsg}${detailMsg}`, 'warning');
+          }
+
           if (manualBox) manualBox.classList.remove('hidden');
           if (transcriptPreview) transcriptPreview.classList.add('hidden');
         }
@@ -150,6 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const formData = new FormData();
       formData.append('transcriptFile', file);
+      const url = videoUrlInput ? videoUrlInput.value.trim() : '';
+      if (url) formData.append('videoId', url);
 
       try {
         const res = await fetch('/api/upload-transcript-file', {
@@ -157,11 +192,16 @@ document.addEventListener('DOMContentLoaded', () => {
           body: formData
         });
         const data = await res.json();
-        if (data.success && data.text) {
-          if (manualTranscriptArea) manualTranscriptArea.value = data.text;
-          currentTranscript = data.text;
-          const words = data.text.split(/\s+/).filter(Boolean).length;
+        if (data.success && (data.text || data.fullText)) {
+          const content = data.fullText || data.text;
+          if (manualTranscriptArea) manualTranscriptArea.value = content;
+          currentTranscript = content;
+          const words = data.wordCount || content.split(/\s+/).filter(Boolean).length;
           showStatus(`✅ Transcript file loaded successfully (${words} words).`, 'success');
+          if (transcriptPreview) {
+            transcriptPreview.value = data.timestampedText || content;
+            transcriptPreview.classList.remove('hidden');
+          }
           enableAIGenerator();
         } else {
           showStatus(`⚠️ Could not parse file: ${data.error || 'Unknown error'}`, 'warning');
@@ -175,10 +215,52 @@ document.addEventListener('DOMContentLoaded', () => {
           currentTranscript = text;
           const words = text.split(/\s+/).filter(Boolean).length;
           showStatus(`✅ Transcript file loaded locally (${words} words).`, 'success');
+          if (transcriptPreview) {
+            transcriptPreview.value = text;
+            transcriptPreview.classList.remove('hidden');
+          }
           enableAIGenerator();
         };
         reader.onerror = () => showStatus('Could not read file locally.', 'danger');
         reader.readAsText(file);
+      }
+    });
+  }
+
+  // Audio / Video Media Upload Handler (Speech-to-Text)
+  const mediaFileInput = document.getElementById('mediaFileInput');
+  if (mediaFileInput) {
+    mediaFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      showStatus(`⏳ Uploading and processing "${file.name}" with AI Speech-to-Text...`, 'info', true);
+
+      const formData = new FormData();
+      formData.append('mediaFile', file);
+      if (langSelect) formData.append('language', langSelect.value);
+
+      try {
+        const res = await fetch('/api/upload-media', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success && (data.timestampedText || data.fullText)) {
+          currentTranscript = data.fullText || data.timestampedText;
+          if (manualTranscriptArea) manualTranscriptArea.value = currentTranscript;
+          if (transcriptPreview) {
+            transcriptPreview.value = data.timestampedText || currentTranscript;
+            transcriptPreview.classList.remove('hidden');
+          }
+          if (manualBox) manualBox.classList.add('hidden');
+          showStatus(`✅ Speech-to-Text completed (${data.wordCount} words, Language: ${data.language || 'en'}).`, 'success');
+          enableAIGenerator();
+        } else {
+          showStatus(`⚠️ Speech-to-Text failed: ${data.error || 'Unknown error'}`, 'warning');
+        }
+      } catch (err) {
+        showStatus(`⚠️ Media upload failed: ${err.message}`, 'danger');
       }
     });
   }
@@ -193,7 +275,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       currentTranscript = manualText;
-      showStatus(`✅ Manual transcript accepted (${manualText.split(/\s+/).length} words).`, 'success');
+      if (transcriptPreview) {
+        transcriptPreview.value = manualText;
+        transcriptPreview.classList.remove('hidden');
+      }
+      const words = manualText.split(/\s+/).filter(Boolean).length;
+      showStatus(`✅ Manual transcript accepted (${words} words). AI Study Generator ready!`, 'success');
       enableAIGenerator();
     });
   }
