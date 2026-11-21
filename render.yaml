@@ -3,6 +3,7 @@ services:
     name: cse-study-hub
     env: node
     plan: free
+    autoDeploy: true
     buildCommand: npm install
     startCommand: node server.js
     envVars:
