@@ -480,7 +480,7 @@ async function fetchViaGeminiDirect(videoId, requestedLang = 'en') {
   const langLabel = requestedLang === 'hi' ? 'Hindi' : 'English';
 
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
