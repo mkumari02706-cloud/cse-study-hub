@@ -213,12 +213,17 @@
 <script>
   window.SUBJECTS_DATA = <%- JSON.stringify(subjects) %>;
   async function resetAddLectureForm() {
-    const confirmed = await window.showConfirmDialog({
-      title: 'Discard Lecture Materials',
-      message: 'Are you sure you want to discard the fetched transcript and generated study notes?',
-      confirmText: 'Discard',
-      isDanger: false
-    });
+    let confirmed = false;
+    if (typeof window.showConfirmDialog === 'function') {
+      confirmed = await window.showConfirmDialog({
+        title: 'Discard Lecture Materials',
+        message: 'Are you sure you want to discard the fetched transcript and generated study notes?',
+        confirmText: 'Discard',
+        isDanger: false
+      });
+    } else {
+      confirmed = window.confirm('Are you sure you want to discard the fetched transcript and generated study notes?');
+    }
     if (confirmed) {
       window.location.reload();
     }

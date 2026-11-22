@@ -88,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const transcriptStatus = document.getElementById('transcriptStatus');
   const transcriptPreview = document.getElementById('transcriptPreview');
   const manualTranscriptArea = document.getElementById('manualTranscriptArea');
-  const manualBox = document.getElementById('manualTranscriptBox');
 
   function extractVideoId(urlOrId) {
     if (!urlOrId || typeof urlOrId !== 'string') return null;
