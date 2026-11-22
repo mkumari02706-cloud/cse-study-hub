@@ -31,12 +31,14 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const { getAllSubjects } = require('./src/config/subjects');
+const { formatMath } = require('./src/utils/formatMath');
 
 // Global template locals (current year, app info, subjects list)
 app.use((req, res, next) => {
   res.locals.currentYear = new Date().getFullYear();
   res.locals.activeNav = '';
   res.locals.navSubjects = getAllSubjects();
+  res.locals.formatMath = formatMath;
   next();
 });
 

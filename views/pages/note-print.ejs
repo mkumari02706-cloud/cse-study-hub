@@ -25,21 +25,21 @@
   <div class="print-section">
     <h2>📖 Formal University Exam Notes</h2>
     <div class="markdown-body">
-      <%- (lecture.materials && lecture.materials.examNotes) ? lecture.materials.examNotes.replace(/\n/g, '<br>') : '*N/A*' %>
+      <%- (lecture.materials && lecture.materials.examNotes) ? (typeof formatMath === 'function' ? formatMath(lecture.materials.examNotes) : lecture.materials.examNotes).replace(/\n/g, '<br>') : '*N/A*' %>
     </div>
   </div>
 
   <div class="print-section">
     <h2>⚡ Quick Revision & Formulas</h2>
     <div class="markdown-body">
-      <%- (lecture.materials && lecture.materials.quickRevision) ? lecture.materials.quickRevision.replace(/\n/g, '<br>') : '*N/A*' %>
+      <%- (lecture.materials && lecture.materials.quickRevision) ? (typeof formatMath === 'function' ? formatMath(lecture.materials.quickRevision) : lecture.materials.quickRevision).replace(/\n/g, '<br>') : '*N/A*' %>
     </div>
   </div>
 
   <div class="print-section">
     <h2>❓ High Frequency Questions</h2>
     <div class="markdown-body">
-      <%- (lecture.materials && lecture.materials.importantQuestions) ? lecture.materials.importantQuestions.replace(/\n/g, '<br>') : '*N/A*' %>
+      <%- (lecture.materials && lecture.materials.importantQuestions) ? (typeof formatMath === 'function' ? formatMath(lecture.materials.importantQuestions) : lecture.materials.importantQuestions).replace(/\n/g, '<br>') : '*N/A*' %>
     </div>
   </div>
 
@@ -47,7 +47,7 @@
     <div class="print-section">
       <h2>💻 Code Implementation & Dry Run</h2>
       <div class="markdown-body">
-        <%- lecture.materials.codeExamples.replace(/\n/g, '<br>') %>
+        <%- (typeof formatMath === 'function' ? formatMath(lecture.materials.codeExamples) : lecture.materials.codeExamples).replace(/\n/g, '<br>') %>
       </div>
     </div>
   <% } %>

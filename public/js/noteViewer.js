@@ -1,6 +1,15 @@
 // Note Viewer & Editor
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Clean any raw LaTeX math symbols in markdown views
+  if (typeof window.formatMath === 'function') {
+    document.querySelectorAll('.markdown-body').forEach(el => {
+      if (el.innerHTML.includes('$') || el.innerHTML.includes('\\frac')) {
+        el.innerHTML = window.formatMath(el.innerHTML);
+      }
+    });
+  }
+
   // Tab switching
   document.querySelectorAll('.note-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {

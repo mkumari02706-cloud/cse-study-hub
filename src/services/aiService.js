@@ -1,4 +1,5 @@
 require('dotenv').config();
+const { formatMath, cleanLatexMathObject } = require('../utils/formatMath');
 
 /**
  * Safely extracts and sanitizes the Gemini API Key from environment variables.
@@ -455,10 +456,12 @@ Rules:
 2. Include relatable real-world analogies suitable for Indian college students.
 3. Base explanations STRICTLY on the facts presented in the lecture transcript. Do NOT invent missing facts.
 4. Keep technical terminology in English.
-5. Format with Markdown headers, bullet points, and bold terms.`;
+5. Format with Markdown headers, bullet points, and bold terms.
+6. NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nTopic: ${topicName}\n\nLecture Transcript:\n"""\n${transcript.slice(0, 15000)}\n"""\n\nPlease provide a thorough, engaging Hinglish explanation of this lecture.`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -473,10 +476,11 @@ Structure:
 3. Architectural Flow / Diagram Descriptions.
 4. Key Advantages & Limitations.
 5. Critical Exam Tips & Common Misconceptions.
-Rules: Synthesize from provided transcript. Format in GitHub-flavored Markdown.`;
+Rules: Synthesize from provided transcript. Format in GitHub-flavored Markdown. NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nTopic: ${topicName}\n\nLecture Transcript:\n"""\n${transcript.slice(0, 15000)}\n"""\n\nGenerate formal university-style exam notes for this topic.`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -488,10 +492,12 @@ Generate important examination questions derived from the provided lecture trans
 - 2-Mark Short Answer Questions (Definitions, Distinctions)
 - 5-Mark Conceptual Questions (Mechanisms, Comparisons)
 - 10-Mark Detailed / Analytical Questions (Architecture, Derivations, Problem Solving)
-For each question, provide a concise Model Answer Outline based on the lecture.`;
+For each question, provide a concise Model Answer Outline based on the lecture.
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nTopic: ${topicName}\n\nLecture Transcript:\n"""\n${transcript.slice(0, 15000)}\n"""\n\nGenerate targeted exam questions based on this lecture.`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -503,10 +509,12 @@ Create high-yield revision material:
 1. 60-Second Core Concept Summary (3-5 punchy bullets).
 2. Comparison Table (if contrasting concepts exist).
 3. Essential Formulas & Complexities (Time, Space, Constraints).
-4. Key Memory Hooks & Mnemonics to remember exam points.`;
+4. Key Memory Hooks & Mnemonics to remember exam points.
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nTopic: ${topicName}\n\nLecture Transcript:\n"""\n${transcript.slice(0, 15000)}\n"""\n\nGenerate a concise last-minute revision summary.`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -519,10 +527,12 @@ Provide clean, compilable, fully documented code examples relevant to the lectur
 2. Step-by-Step Logic Breakdown.
 3. Dry Run / Variable State Trace Table demonstrating sample inputs and execution.
 4. Expected Output block.
-5. Time and Space Complexity Analysis.`;
+5. Time and Space Complexity Analysis.
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nTopic: ${topicName}\n\nLecture Transcript:\n"""\n${transcript.slice(0, 15000)}\n"""\n\nProvide practical, compilable code examples with a step-by-step dry run.`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -692,7 +702,8 @@ SECTION SPECIFICATIONS:
 
 RULES:
 - Return ONLY valid JSON matching this schema.
-- Do NOT wrap JSON in explanatory text outside the JSON.`;
+- Do NOT wrap JSON in explanatory text outside the JSON.
+- NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const safeTranscript = (transcript || '').slice(0, 20000);
   const userPrompt = `Subject: ${subjectName}\nTopic: ${topicName}\n\nLecture Transcript:\n"""\n${safeTranscript}\n"""\n\nGenerate the complete 5-section study pack in the required JSON format.`;
@@ -705,13 +716,13 @@ RULES:
       throw new Error('Failed to parse AI study pack JSON from LLM response.');
     }
 
-    return {
+    return cleanLatexMathObject({
       hinglish: parsed.hinglish || '*No Hinglish notes generated.*',
       examNotes: parsed.examNotes || '*No Exam notes generated.*',
       importantQuestions: parsed.importantQuestions || '*No Questions generated.*',
       quickRevision: parsed.quickRevision || '*No Revision summary generated.*',
       codeExamples: includeCode ? (parsed.codeExamples || '*No Code examples generated.*') : null
-    };
+    });
   } catch (err) {
     console.warn(`[AI Service] Single-call study pack generation failed (${err.message}). Returning structured fallback pack.`);
     return {
@@ -750,10 +761,12 @@ Structure your response:
 3. **Step-by-Step Architecture / Working Mechanism**: Detail how it operates under the hood. Include an ASCII or Markdown flow diagram where relevant.
 4. **Key Variations & Types**: Sub-categories or algorithms associated with this topic.
 5. **Practical Real-World Industry Application**: Where is this used in modern engineering (e.g., Linux kernel, distributed databases, cloud systems, compilers)?
-6. **Key Takeaway**: One summarizing sentence to remember for exams.`;
+6. **Key Takeaway**: One summarizing sentence to remember for exams.
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nUnit: ${unitTitle}\nTopic: ${topicName}\nLanguage: ${language}\n\nProvide a comprehensive, high-scoring conceptual explanation of "${topicName}".`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -771,10 +784,12 @@ Format strictly in Markdown:
 2. 🔑 **Key Principles / Salient Features**: 5-7 bullet points of must-remember facts.
 3. 📊 **Key Formulas, Complexities & Bounds**: Time complexity, space complexity, mathematical constraints or state transitions.
 4. ⚡ **Pros & Cons**: 3 key advantages and 3 key limitations.
-5. 💡 **Pro-Exam Tip**: What examiners look for and common pitfalls students lose marks on.`;
+5. 💡 **Pro-Exam Tip**: What examiners look for and common pitfalls students lose marks on.
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nUnit: ${unitTitle}\nTopic: ${topicName}\n\nGenerate structured exam short notes.`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -791,10 +806,12 @@ Generate exam-ready questions for this specific syllabus topic formatted by mark
 2. **5-Mark Conceptual Questions (2 questions)**: Mechanisms, comparison tables, step-by-step procedures.
 3. **10-Mark Detailed Questions (2 questions)**: In-depth design, derivations, architecture diagrams, scenario-based problems.
 
-For EVERY question, provide a concise **Model Answer / Answer Key Outline** outlining the exact points required for full marks.`;
+For EVERY question, provide a concise **Model Answer / Answer Key Outline** outlining the exact points required for full marks.
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
   const userPrompt = `Subject: ${subjectName}\nUnit: ${unitTitle}\nTopic: ${topicName}\n\nGenerate authentic university examination questions with model answer keys.`;
-  return callLLM(systemPrompt, userPrompt);
+  const result = await callLLM(systemPrompt, userPrompt);
+  return formatMath(result);
 }
 
 /**
@@ -1092,6 +1109,8 @@ async function generatePracticeQuestions(subjectName, unitTitle, topicName, coun
       const systemPrompt = `You are a university examination quiz creator for Computer Science.
 Generate ${count} high-quality, authentic university-level Multiple Choice Questions (MCQs) for the topic "${topicName}" (${subjectName} - ${unitTitle}).
 
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).
+
 Each question must test conceptual understanding, numerical calculation, or code analysis.
 Output MUST be strict JSON matching this structure:
 {
@@ -1193,6 +1212,8 @@ async function generateFlashcards(subjectName, unitTitle, topicName, count = 6) 
     try {
       const systemPrompt = `You are a memory retention and active-recall expert for Computer Science students.
 Generate ${count} digital flashcards for the topic "${topicName}" (${subjectName} - ${unitTitle}).
+
+Rule: NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).
 
 Each card MUST have:
 - "id": unique number
@@ -1627,7 +1648,8 @@ RULES:
 2. Link definitions, topics, and notes to timestamps like [mm:ss] found in the transcript.
 3. Automatically identify distinct topics and subtopics from the transcript.
 4. Ensure ALL 24 sections are populated with meaningful, high quality content.
-5. Provide at least 4 flashcards, 4 practice MCQs, 3 short answer questions, 2 long answer questions, 2 interview questions, 2 viva questions, and 3 FAQs.`;
+5. Provide at least 4 flashcards, 4 practice MCQs, 3 short answer questions, 2 long answer questions, 2 interview questions, 2 viva questions, and 3 FAQs.
+6. NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬).`;
 
     const userPrompt = `Course/Category: ${categoryName}\nTopic: ${topicTitle}\n\nTranscript Content:\n"""\n${truncatedTranscript}\n"""\n\nGenerate the complete 24-dimension Complete Academic Study Pack JSON.`;
 
@@ -1753,13 +1775,13 @@ Output JSON schema:
           promptInstruction = `Regenerate section "${sectionName}" for "${topicTitle}" (${categoryName}) grounded in the transcript. Output strictly in JSON format containing "${sectionName}".`;
       }
 
-      const systemPrompt = `You are a distinguished Computer Science Professor. Generate strictly valid JSON. ${promptInstruction}`;
+      const systemPrompt = `You are a distinguished Computer Science Professor. Generate strictly valid JSON. NEVER use \`$\` or \`$$\` LaTeX syntax. Write all mathematical expressions using clean Unicode symbols and HTML-friendly notation (e.g., Kₙ, K₃, n(n-1)/2, (n-1), ∈, ∀, ∃, ≤, ≥, →, ∧, ∨, ¬). ${promptInstruction}`;
       const userPrompt = `Course: ${categoryName}\nTopic: ${topicTitle}\n\nTranscript Content:\n"""\n${safeTranscript}\n"""\n\nGenerate section "${sectionName}" JSON now.`;
 
       const raw = await callLLM(systemPrompt, userPrompt, true);
       const clean = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
       const parsed = JSON.parse(clean);
-      return parsed[sectionName] || parsed;
+      return cleanLatexMathObject(parsed[sectionName] || parsed);
     } catch (err) {
       console.warn(`[AI Service] Regeneration of section "${sectionName}" fallback:`, err.message);
     }
@@ -2536,7 +2558,7 @@ function normalizeStudyPackOutput(parsed = {}, categoryName = 'Computer Science'
     ];
   }
 
-  return parsed;
+  return cleanLatexMathObject(parsed);
 }
 
 function generateFallbackLectureStudyPack(categoryName, topicTitle, transcriptText) {

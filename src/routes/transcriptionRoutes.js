@@ -18,10 +18,18 @@ router.get('/', async (req, res) => {
     const selectedCategory = req.query.category || '';
     const selectedTopic = req.query.topic || '';
     const selectedTopicId = req.query.topicId || '';
-    const selectedType = req.query.type || 'explore'; // 'explore' or 'curriculum'
 
     const exploreTracks = exploreService.getAllTracks();
     const curriculumSubjects = getAllSubjects();
+
+    let selectedType = req.query.type || '';
+    if (!selectedType) {
+      if (selectedCategory && curriculumSubjects.some(s => s.id === selectedCategory)) {
+        selectedType = 'curriculum';
+      } else {
+        selectedType = 'explore';
+      }
+    }
     const history = await transcriptionService.getTranscripts({ studentId: 'default_student' });
 
     res.render('pages/transcription', {

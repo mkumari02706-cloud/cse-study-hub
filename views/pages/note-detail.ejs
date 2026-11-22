@@ -72,7 +72,7 @@
         <div id="paneHinglish" class="tab-pane note-content-pane active">
           <div class="markdown-body">
             <% if (lecture.materials && lecture.materials.hinglish) { %>
-              <%- lecture.materials.hinglish.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+              <%- (typeof formatMath === 'function' ? formatMath(lecture.materials.hinglish) : lecture.materials.hinglish).replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
             <% } else { %>
               *No Hinglish explanation saved for this lecture.*
             <% } %>
@@ -82,7 +82,7 @@
         <div id="paneExamNotes" class="tab-pane note-content-pane">
           <div class="markdown-body">
             <% if (lecture.materials && lecture.materials.examNotes) { %>
-              <%- lecture.materials.examNotes.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+              <%- (typeof formatMath === 'function' ? formatMath(lecture.materials.examNotes) : lecture.materials.examNotes).replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
             <% } else { %>
               *No formal exam notes saved for this lecture.*
             <% } %>
@@ -92,7 +92,7 @@
         <div id="paneQuestions" class="tab-pane note-content-pane">
           <div class="markdown-body">
             <% if (lecture.materials && lecture.materials.importantQuestions) { %>
-              <%- lecture.materials.importantQuestions.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+              <%- (typeof formatMath === 'function' ? formatMath(lecture.materials.importantQuestions) : lecture.materials.importantQuestions).replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
             <% } else { %>
               *No exam questions saved for this lecture.*
             <% } %>
@@ -102,7 +102,7 @@
         <div id="paneRevision" class="tab-pane note-content-pane">
           <div class="markdown-body">
             <% if (lecture.materials && lecture.materials.quickRevision) { %>
-              <%- lecture.materials.quickRevision.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+              <%- (typeof formatMath === 'function' ? formatMath(lecture.materials.quickRevision) : lecture.materials.quickRevision).replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
             <% } else { %>
               *No quick revision notes saved for this lecture.*
             <% } %>
@@ -112,7 +112,7 @@
         <% if (lecture.materials && lecture.materials.codeExamples) { %>
           <div id="paneCode" class="tab-pane note-content-pane">
             <div class="markdown-body">
-              <%- lecture.materials.codeExamples.replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
+              <%- (typeof formatMath === 'function' ? formatMath(lecture.materials.codeExamples) : lecture.materials.codeExamples).replace(/\n/g, '<br>').replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') %>
             </div>
           </div>
         <% } %>
