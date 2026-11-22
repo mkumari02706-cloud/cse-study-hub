@@ -29,7 +29,7 @@ function extractBrowserVideoId(urlOrId) {
   return null;
 }
 
-// Browser-side fallback to fetch captions using user's own residential IP (bypasses Render cloud IP blocks)
+// Browser-side fallback to fetch captions using user's own residential IP
 async function fetchTranscriptFromBrowser(videoId, requestedLang = 'en') {
   const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
   const proxies = [
@@ -104,6 +104,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const unitSelect = document.getElementById('unitSelect');
   const topicSelect = document.getElementById('topicSelect');
   const customTopicInput = document.getElementById('customTopicInput');
+
+  // Keep Manual Transcript Box & AI Generator visible immediately on page load
+  ['manualTranscriptBox', 'aiGeneratorSection'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.remove('hidden');
+      if (el.style.display === 'none') el.style.display = 'block';
+    }
+  });
 
   if (subjectSelect) {
     subjectSelect.addEventListener('change', updateUnitsAndTopics);
@@ -180,8 +189,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (transcriptPreview) {
       transcriptPreview.value = data.timestampedText || data.fullText;
       transcriptPreview.classList.remove('hidden');
+      transcriptPreview.style.display = 'block';
     }
-    if (manualBox) manualBox.classList.add('hidden');
 
     const titleInput = document.getElementById('lectureTitleInput');
     if (titleInput && !titleInput.value && data.metadata && data.metadata.title) {
@@ -199,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchTranscriptBtn.addEventListener('click', async () => {
       const url = videoUrlInput.value.trim();
       if (!url) {
-        showStatus('Please enter a YouTube video URL.', 'danger');
+        showStatus('Please enter a YouTube video URL or paste your transcript directly below.', 'warning');
         return;
       }
 
@@ -225,7 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
 
-          // Server IP blocked -> automatically try Browser-Side Fetch
           const videoId = data.videoId || extractBrowserVideoId(url);
           if (videoId) {
             showStatus('⏳ Server IP blocked by YouTube — fetching captions directly via your browser...', 'info', true);
@@ -237,8 +245,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
 
-          // If both server & browser fail, show manual box
-          if (manualBox) manualBox.classList.remove('hidden');
+          if (manualBox) {
+            manualBox.classList.remove('hidden');
+            manualBox.style.display = 'block';
+          }
           const errorMsg = data.error || 'Captions are unavailable for this video.';
           const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
           showStatus(`⚠️ ${errorMsg}${detailMsg}`, 'warning');
@@ -280,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (transcriptPreview) {
             transcriptPreview.value = data.timestampedText || content;
             transcriptPreview.classList.remove('hidden');
+            transcriptPreview.style.display = 'block';
           }
           enableAIGenerator();
         } else {
@@ -296,6 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (transcriptPreview) {
             transcriptPreview.value = text;
             transcriptPreview.classList.remove('hidden');
+            transcriptPreview.style.display = 'block';
           }
           enableAIGenerator();
         };
@@ -330,8 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (transcriptPreview) {
             transcriptPreview.value = data.timestampedText || currentTranscript;
             transcriptPreview.classList.remove('hidden');
+            transcriptPreview.style.display = 'block';
           }
-          if (manualBox) manualBox.classList.add('hidden');
           showStatus(`✅ Speech-to-Text completed (${data.wordCount} words, Language: ${data.language || 'en'}).`, 'success');
           enableAIGenerator();
         } else {
@@ -356,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (transcriptPreview) {
         transcriptPreview.value = manualText;
         transcriptPreview.classList.remove('hidden');
+        transcriptPreview.style.display = 'block';
       }
       const words = manualText.split(/\s+/).filter(Boolean).length;
       showStatus(`✅ Manual transcript accepted (${words} words). AI Study Generator ready!`, 'success');
@@ -370,11 +383,15 @@ document.addEventListener('DOMContentLoaded', () => {
       ? `<span class="spinner">⏳</span> ${msg}`
       : msg;
     transcriptStatus.classList.remove('hidden');
+    transcriptStatus.style.display = 'block';
   }
 
   function enableAIGenerator() {
     const aiSection = document.getElementById('aiGeneratorSection');
-    if (aiSection) aiSection.classList.remove('hidden');
+    if (aiSection) {
+      aiSection.classList.remove('hidden');
+      aiSection.style.display = 'block';
+    }
   }
 
   // 2. Generate All Sections (1-Click)
@@ -404,7 +421,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.success && data.studyMaterials) {
           generatedMaterials = data.studyMaterials;
           renderGeneratedTabs(data.studyMaterials);
-          document.getElementById('saveSection').classList.remove('hidden');
+          const saveSec = document.getElementById('saveSection');
+          if (saveSec) {
+            saveSec.classList.remove('hidden');
+            saveSec.style.display = 'block';
+          }
         } else {
           alert(`AI Generation Notice: ${data.error}`);
         }
