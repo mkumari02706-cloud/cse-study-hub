@@ -16,6 +16,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const topicSelect = document.getElementById('topicSelect');
   const customTopicInput = document.getElementById('customTopicInput');
 
+  // Always keep manual transcript input and AI study generator sections visible on page load
+  const manualBox = document.getElementById('manualTranscriptBox');
+  if (manualBox) manualBox.classList.remove('hidden');
+  const aiSection = document.getElementById('aiGeneratorSection');
+  if (aiSection) aiSection.classList.remove('hidden');
+
   // Handle dynamic units & topics on subject change
   if (subjectSelect) {
     subjectSelect.addEventListener('change', updateUnitsAndTopics);
@@ -84,6 +90,298 @@ document.addEventListener('DOMContentLoaded', () => {
   const manualTranscriptArea = document.getElementById('manualTranscriptArea');
   const manualBox = document.getElementById('manualTranscriptBox');
 
+  function extractVideoId(urlOrId) {
+    if (!urlOrId || typeof urlOrId !== 'string') return null;
+    const trimmed = urlOrId.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+    const patterns = [
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?(?:.*&)?v=([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?(?:www\.)?youtube\.com\/live\/([a-zA-Z0-9_-]{11})/i,
+      /(?:https?:\/\/)?m\.youtube\.com\/watch\?(?:.*&)?v=([a-zA-Z0-9_-]{11})/i
+    ];
+    for (const regex of patterns) {
+      const match = trimmed.match(regex);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  }
+
+  function decodeHtml(html) {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+  }
+
+  function parseBrowserSubtitleTrack(rawContent, lang = 'en') {
+    if (!rawContent || typeof rawContent !== 'string') return null;
+    const content = rawContent.replace(/^\uFEFF/, '').trim();
+    if (!content) return null;
+
+    const lines = content.split(/\r?\n/);
+    const items = [];
+
+    // 1. Check if VTT or SRT format
+    const timecodeRegex = /(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.]\d{3}\s*-->\s*(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.]\d{3}/;
+    const isVttOrSrt = content.includes('WEBVTT') || lines.some(l => timecodeRegex.test(l));
+
+    if (isVttOrSrt) {
+      let currentTimestamp = '[00:00]';
+      let currentOffsetSec = 0;
+      let textBuffer = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || line === 'WEBVTT' || /^\d+$/.test(line) || /^NOTE\b/.test(line)) continue;
+
+        const tcMatch = line.match(timecodeRegex);
+        if (tcMatch) {
+          if (textBuffer.length > 0) {
+            const joinedText = decodeHtml(textBuffer.join(' ').replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+            if (joinedText) {
+              items.push({
+                timestamp: currentTimestamp,
+                offsetSec: currentOffsetSec,
+                text: joinedText
+              });
+            }
+            textBuffer = [];
+          }
+          const hours = parseInt(tcMatch[1] || '0', 10);
+          const mins = parseInt(tcMatch[2], 10) + (hours * 60);
+          const secs = parseInt(tcMatch[3], 10);
+          currentOffsetSec = mins * 60 + secs;
+          currentTimestamp = `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
+        } else {
+          const clean = line.replace(/<[^>]+>/g, '').trim();
+          if (clean) textBuffer.push(clean);
+        }
+      }
+
+      if (textBuffer.length > 0) {
+        const joinedText = decodeHtml(textBuffer.join(' ').replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+        if (joinedText) {
+          items.push({
+            timestamp: currentTimestamp,
+            offsetSec: currentOffsetSec,
+            text: joinedText
+          });
+        }
+      }
+    }
+
+    // 2. Check if XML format (<p t="ms" d="ms"> or <text start="s" dur="s">)
+    if (items.length === 0 && (content.includes('<transcript') || content.includes('<timedtext') || content.includes('<p ') || content.includes('<text '))) {
+      // srv3 format
+      const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+      let match;
+      while ((match = pRegex.exec(content)) !== null) {
+        const startMs = parseInt(match[1], 10);
+        let t = match[3].replace(/<[^>]+>/g, '');
+        t = decodeHtml(t).replace(/\s+/g, ' ').trim();
+        if (t) {
+          const totalSecs = Math.floor(startMs / 1000);
+          const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
+          const secs = (totalSecs % 60).toString().padStart(2, '0');
+          items.push({
+            timestamp: `[${mins}:${secs}]`,
+            offsetSec: totalSecs,
+            text: t
+          });
+        }
+      }
+
+      if (items.length === 0) {
+        // Classic format
+        const textRegex = /<text\s+start="([^"]*)"(?:\s+dur="([^"]*)")?[^>]*>([\s\S]*?)<\/text>/g;
+        let tMatch;
+        while ((tMatch = textRegex.exec(content)) !== null) {
+          const startSec = parseFloat(tMatch[1]) || 0;
+          let t = tMatch[3].replace(/<[^>]+>/g, '');
+          t = decodeHtml(t).replace(/\s+/g, ' ').trim();
+          if (t) {
+            const totalSecs = Math.floor(startSec);
+            const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
+            const secs = (totalSecs % 60).toString().padStart(2, '0');
+            items.push({
+              timestamp: `[${mins}:${secs}]`,
+              offsetSec: totalSecs,
+              text: t
+            });
+          }
+        }
+      }
+    }
+
+    if (items.length === 0) {
+      // Fallback: parse plain lines
+      const cleanLines = lines.map(l => l.trim()).filter(l => l.length > 0 && !/^\d+$/.test(l));
+      if (cleanLines.length > 0) {
+        cleanLines.forEach((cl, idx) => {
+          items.push({
+            timestamp: `[${Math.floor(idx / 2).toString().padStart(2, '0')}:00]`,
+            offsetSec: idx * 30,
+            text: decodeHtml(cl)
+          });
+        });
+      }
+    }
+
+    if (items.length === 0) return null;
+
+    // Deduplicate consecutive repeating lines (rolling transcripts)
+    const dedupedItems = [];
+    for (let i = 0; i < items.length; i++) {
+      if (dedupedItems.length === 0 || dedupedItems[dedupedItems.length - 1].text !== items[i].text) {
+        dedupedItems.push(items[i]);
+      }
+    }
+
+    const timestampedText = dedupedItems.map(it => `${it.timestamp} ${it.text}`).join('\n');
+    const fullText = dedupedItems.map(it => it.text).join(' ');
+    const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+
+    return {
+      rawItems: dedupedItems,
+      timestampedText,
+      fullText,
+      wordCount
+    };
+  }
+
+  /**
+   * Fetches captions directly from multiple public Piped & Invidious mirror endpoints and proxy fallbacks
+   */
+  async function fetchTranscriptFromBrowser(videoId, requestedLang = 'en') {
+    if (!videoId) return { success: false, error: 'No video ID provided' };
+
+    // 1. Piped API instances
+    const pipedInstances = [
+      'https://pipedapi.kavin.rocks',
+      'https://pipedapi.adminforge.de',
+      'https://api.piped.private.coffee',
+      'https://pipedapi.leptons.xyz'
+    ];
+
+    for (const base of pipedInstances) {
+      try {
+        const streamRes = await fetch(`${base}/streams/${videoId}`, {
+          signal: AbortSignal.timeout(4000)
+        });
+        if (!streamRes.ok) continue;
+
+        const data = await streamRes.json();
+        const subtitles = data.subtitles || [];
+        if (!Array.isArray(subtitles) || subtitles.length === 0) continue;
+
+        let chosen = subtitles.find(s => s.code === requestedLang && !s.autoGenerated) ||
+                     subtitles.find(s => s.code === requestedLang) ||
+                     subtitles.find(s => s.code && s.code.startsWith(requestedLang)) ||
+                     subtitles.find(s => s.code === 'en' || s.code?.startsWith('en')) ||
+                     subtitles.find(s => s.code === 'hi' || s.code?.startsWith('hi')) ||
+                     subtitles[0];
+
+        if (chosen && chosen.url) {
+          const subRes = await fetch(chosen.url, { signal: AbortSignal.timeout(4000) });
+          if (subRes.ok) {
+            const raw = await subRes.text();
+            const parsed = parseBrowserSubtitleTrack(raw, chosen.code || requestedLang);
+            if (parsed && parsed.wordCount > 10) {
+              return {
+                success: true,
+                ...parsed,
+                title: data.title || null,
+                language: chosen.code || requestedLang,
+                source: `Piped API (${new URL(base).hostname})`
+              };
+            }
+          }
+        }
+      } catch (e) {
+        // Continue to next mirror
+      }
+    }
+
+    // 2. Invidious Captions API instances
+    const invidiousInstances = [
+      'https://inv.nadeko.net',
+      'https://invidious.nerdvpn.de',
+      'https://yewtu.be',
+      'https://invidious.jing.rocks'
+    ];
+
+    for (const base of invidiousInstances) {
+      try {
+        const capRes = await fetch(`${base}/api/v1/captions/${videoId}`, {
+          signal: AbortSignal.timeout(4000)
+        });
+        if (!capRes.ok) continue;
+
+        const data = await capRes.json();
+        const captions = data.captions || [];
+        if (!Array.isArray(captions) || captions.length === 0) continue;
+
+        let chosen = captions.find(c => c.languageCode === requestedLang) ||
+                     captions.find(c => c.languageCode && c.languageCode.startsWith(requestedLang)) ||
+                     captions.find(c => c.languageCode === 'en' || c.languageCode?.startsWith('en')) ||
+                     captions[0];
+
+        if (chosen && chosen.url) {
+          const fullUrl = chosen.url.startsWith('http') ? chosen.url : `${base}${chosen.url}`;
+          const subRes = await fetch(fullUrl, { signal: AbortSignal.timeout(4000) });
+          if (subRes.ok) {
+            const raw = await subRes.text();
+            const parsed = parseBrowserSubtitleTrack(raw, chosen.languageCode || requestedLang);
+            if (parsed && parsed.wordCount > 10) {
+              return {
+                success: true,
+                ...parsed,
+                language: chosen.languageCode || requestedLang,
+                source: `Invidious API (${new URL(base).hostname})`
+              };
+            }
+          }
+        }
+      } catch (e) {
+        // Continue to next mirror
+      }
+    }
+
+    // 3. Fallback: CORS Proxy TimedText
+    const proxyUrls = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=${requestedLang}`)}`,
+      `https://corsproxy.io/?url=${encodeURIComponent(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=${requestedLang}`)}`
+    ];
+
+    for (const pUrl of proxyUrls) {
+      try {
+        const pRes = await fetch(pUrl, { signal: AbortSignal.timeout(4000) });
+        if (pRes.ok) {
+          const raw = await pRes.text();
+          const parsed = parseBrowserSubtitleTrack(raw, requestedLang);
+          if (parsed && parsed.wordCount > 10) {
+            return {
+              success: true,
+              ...parsed,
+              language: requestedLang,
+              source: 'CORS Proxy TimedText'
+            };
+          }
+        }
+      } catch (e) {
+        // Continue
+      }
+    }
+
+    return {
+      success: false,
+      error: 'Could not fetch captions from any public Piped/Invidious mirror or proxy.'
+    };
+  }
+
   if (fetchTranscriptBtn) {
     fetchTranscriptBtn.addEventListener('click', async () => {
       const url = videoUrlInput.value.trim();
@@ -95,7 +393,10 @@ document.addEventListener('DOMContentLoaded', () => {
       showStatus('Fetching transcript & video metadata...', 'info', true);
       fetchTranscriptBtn.disabled = true;
 
+      const videoId = extractVideoId(url);
+
       try {
+        // Step 1: Call server backend
         const res = await fetch('/api/transcript', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -110,8 +411,11 @@ document.addEventListener('DOMContentLoaded', () => {
           showStatus(`✅ Transcript retrieved automatically (${data.wordCount} words${data.isAutoGenerated ? ' [Auto-Generated]' : ''}). Generating complete study pack with AI...`, 'info', true);
           if (transcriptPreview) {
             transcriptPreview.value = data.timestampedText || data.fullText;
+            transcriptPreview.classList.remove('hidden');
           }
-          if (manualBox) manualBox.classList.add('hidden');
+          if (manualTranscriptArea) {
+            manualTranscriptArea.value = data.fullText || data.timestampedText;
+          }
 
           // Autofill lecture title if blank
           const titleInput = document.getElementById('lectureTitleInput');
@@ -125,30 +429,99 @@ document.addEventListener('DOMContentLoaded', () => {
           if (genBtn) {
             genBtn.click();
           }
-        } else {
-          // Autofill lecture title if metadata was retrieved
-          if (data.metadata && data.metadata.title) {
-            currentVideoMetadata = data.metadata;
-            const titleInput = document.getElementById('lectureTitleInput');
-            if (titleInput && !titleInput.value) {
-              titleInput.value = data.metadata.title;
-            }
-          }
+          return;
+        }
 
-          // Unhide manual transcript & file upload box so user can upload TXT/SRT file immediately
-          if (manualBox) manualBox.classList.remove('hidden');
-
-          if (data.errorCode === 'RATE_LIMITED' || data.isRateLimited) {
-            const remaining = data.cooldownRemainingSec || 60;
-            showStatus(`⏳ <strong>YouTube Cooldown Active (${remaining}s):</strong> Automated caption requests are temporarily resting. Please upload a transcript file (.txt, .srt, .vtt) below to continue immediately.`, 'warning');
-          } else {
-            const errorMsg = data.error || 'Captions are unavailable for this video.';
-            const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
-            showStatus(`⚠️ ${errorMsg}${detailMsg}`, 'warning');
+        // Autofill lecture title if metadata was retrieved
+        if (data.metadata && data.metadata.title) {
+          currentVideoMetadata = data.metadata;
+          const titleInput = document.getElementById('lectureTitleInput');
+          if (titleInput && !titleInput.value) {
+            titleInput.value = data.metadata.title;
           }
         }
+
+        // Step 2: Server IP was blocked or failed, try browser-side multi-source fetcher!
+        if (videoId) {
+          showStatus('⏳ Cloud server IP blocked by YouTube. Fetching captions directly via browser mirrors (Piped & Invidious)...', 'info', true);
+          const browserResult = await fetchTranscriptFromBrowser(videoId, langSelect.value);
+
+          if (browserResult.success) {
+            currentTranscript = browserResult.fullText || browserResult.timestampedText;
+            if (!currentVideoMetadata) {
+              currentVideoMetadata = {
+                videoId,
+                title: browserResult.title || `Lecture (${videoId})`
+              };
+            } else if (browserResult.title && (!currentVideoMetadata.title || currentVideoMetadata.title.startsWith('YouTube Lecture'))) {
+              currentVideoMetadata.title = browserResult.title;
+            }
+
+            const titleInput = document.getElementById('lectureTitleInput');
+            if (titleInput && !titleInput.value && currentVideoMetadata.title) {
+              titleInput.value = currentVideoMetadata.title;
+            }
+
+            if (transcriptPreview) {
+              transcriptPreview.value = browserResult.timestampedText || browserResult.fullText;
+              transcriptPreview.classList.remove('hidden');
+            }
+            if (manualTranscriptArea) {
+              manualTranscriptArea.value = browserResult.fullText;
+            }
+
+            showStatus(`✅ Transcript retrieved automatically via ${browserResult.source} (${browserResult.wordCount} words). Generating complete study pack with AI...`, 'info', true);
+
+            // Enable AI Generator and directly trigger automatic generation
+            enableAIGenerator();
+            const genBtn = document.getElementById('generateAllBtn');
+            if (genBtn) {
+              genBtn.click();
+            }
+            return;
+          }
+        }
+
+        // Step 3: If both failed, show clear instructions to paste manually
+        if (data.errorCode === 'RATE_LIMITED' || data.isRateLimited) {
+          const remaining = data.cooldownRemainingSec || 60;
+          showStatus(`⏳ <strong>YouTube Cloud IP Rate-Limited (${remaining}s):</strong> Automated caption requests are temporarily resting. Please paste your lecture transcript or upload a file (.txt, .srt, .vtt) below to generate your study pack immediately.`, 'warning');
+        } else {
+          const errorMsg = data.error || 'Captions are unavailable for this video.';
+          const detailMsg = data.details ? `<br><small style="opacity:0.9;">${data.details}</small>` : '';
+          showStatus(`⚠️ ${errorMsg}${detailMsg}<br><small>You can paste the transcript or upload a file (.txt, .srt, .vtt) below to continue.</small>`, 'warning');
+        }
       } catch (err) {
-        showStatus(`⚠️ Error: ${err.message}`, 'danger');
+        // Network error contacting backend; try browser fetch directly
+        if (videoId) {
+          try {
+            showStatus('⏳ Attempting browser-side multi-source caption fetcher...', 'info', true);
+            const browserResult = await fetchTranscriptFromBrowser(videoId, langSelect.value);
+            if (browserResult.success) {
+              currentTranscript = browserResult.fullText || browserResult.timestampedText;
+              currentVideoMetadata = { videoId, title: browserResult.title || `Lecture (${videoId})` };
+              const titleInput = document.getElementById('lectureTitleInput');
+              if (titleInput && !titleInput.value && browserResult.title) {
+                titleInput.value = browserResult.title;
+              }
+              if (transcriptPreview) {
+                transcriptPreview.value = browserResult.timestampedText || browserResult.fullText;
+                transcriptPreview.classList.remove('hidden');
+              }
+              if (manualTranscriptArea) {
+                manualTranscriptArea.value = browserResult.fullText;
+              }
+              showStatus(`✅ Transcript retrieved automatically via ${browserResult.source} (${browserResult.wordCount} words). Generating complete study pack with AI...`, 'info', true);
+              enableAIGenerator();
+              const genBtn = document.getElementById('generateAllBtn');
+              if (genBtn) {
+                genBtn.click();
+              }
+              return;
+            }
+          } catch (e2) {}
+        }
+        showStatus(`⚠️ Error: ${err.message}. Please paste transcript below.`, 'danger');
       } finally {
         fetchTranscriptBtn.disabled = false;
       }
@@ -236,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
             transcriptPreview.value = data.timestampedText || currentTranscript;
             transcriptPreview.classList.remove('hidden');
           }
-          if (manualBox) manualBox.classList.add('hidden');
+          if (manualBox) manualBox.classList.remove('hidden');
           showStatus(`✅ Speech-to-Text completed (${data.wordCount} words, Language: ${data.language || 'en'}).`, 'success');
           enableAIGenerator();
         } else {

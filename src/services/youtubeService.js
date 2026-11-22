@@ -501,7 +501,7 @@ async function fetchVideoMetadata(videoId) {
   if (apiKey && apiKey.trim()) {
     try {
       const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(videoId)}&part=snippet&key=${encodeURIComponent(apiKey.trim())}`;
-      const apiRes = await fetch(apiUrl);
+      const apiRes = await fetch(apiUrl, { signal: AbortSignal.timeout(2000) });
       if (apiRes.ok) {
         const apiData = await apiRes.json();
         const item = apiData.items && apiData.items[0];
@@ -524,7 +524,7 @@ async function fetchVideoMetadata(videoId) {
   // 2. Try official YouTube oEmbed
   try {
     const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&format=json`;
-    const res = await fetch(oembedUrl);
+    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(2000) });
     if (res.ok) {
       const data = await res.json();
       const meta = {
@@ -643,15 +643,15 @@ function parseTranscriptXml(xml, lang = 'en') {
 
 /**
  * Retry helper with exponential backoff and jitter.
- * Implements exponential backoff for HTTP 429 and transient rate-limit errors.
- * Does NOT retry aggressively or bypass YouTube restrictions.
+ * Implements exponential backoff for transient errors.
+ * Fails fast immediately on rate limits and bot challenges to prevent hanging cloud workers.
  * Permanent errors (404, captions disabled by creator) throw immediately.
  */
 async function withExponentialBackoff(fn, {
-  maxRetries = 2,
-  baseDelayMs = 1000,
-  backoffFactor = 2,
-  maxDelayMs = 5000
+  maxRetries = 1,
+  baseDelayMs = 250,
+  backoffFactor = 1.5,
+  maxDelayMs = 500
 } = {}) {
   let attempt = 0;
   while (true) {
@@ -685,23 +685,22 @@ async function withExponentialBackoff(fn, {
         throw err;
       }
 
-      // If attempts exceeded maxRetries, record cooldown and exit gracefully
+      // Fail fast immediately on rate limit / bot challenge to avoid holding up cloud requests
+      if (isRateLimit) {
+        cache.setRateLimitCooldown(60 * 1000, 'YouTube rate limit detected');
+        const rateErr = new Error('YouTube request was temporarily rate-limited (cooldown active).');
+        rateErr.code = 'RATE_LIMITED';
+        rateErr.status = 429;
+        throw rateErr;
+      }
+
       if (attempt > maxRetries) {
-        if (isRateLimit) {
-          cache.setRateLimitCooldown(60 * 1000, 'YouTube rate limit detected after exponential backoff retries');
-          const rateErr = new Error('YouTube request was temporarily rate-limited (cooldown active).');
-          rateErr.code = 'RATE_LIMITED';
-          rateErr.status = 429;
-          throw rateErr;
-        }
         throw err;
       }
 
-      // Exponential backoff delay with jitter: delay = baseDelay * (factor ^ (attempt - 1)) + jitter
-      const jitter = Math.floor(Math.random() * 250);
+      const jitter = Math.floor(Math.random() * 100);
       let delay = Math.min(baseDelayMs * Math.pow(backoffFactor, attempt - 1) + jitter, maxDelayMs);
 
-      // Respect Retry-After header if provided
       if (err.retryAfter && typeof err.retryAfter === 'number' && err.retryAfter > 0) {
         delay = Math.min(err.retryAfter * 1000, maxDelayMs);
       }
@@ -716,7 +715,7 @@ async function withExponentialBackoff(fn, {
  * Uses mobile and VR client contexts which bypass desktop BotGuard / PoToken restrictions.
  * Accurately extracts both manual closed captions and auto-generated (ASR) subtitles.
  */
-async function fetchViaInnerTube(videoId, requestedLang = 'en') {
+async function fetchViaInnerTube(videoId, requestedLang = 'en', abortSignal = null) {
   const clients = [
     {
       name: 'ANDROID',
@@ -748,9 +747,11 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
   ];
 
   for (const client of clients) {
+    if (abortSignal && abortSignal.aborted) break;
     try {
       const playerUrl = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
       const res = await withExponentialBackoff(async () => {
+        const signal = abortSignal || AbortSignal.timeout(2000);
         const response = await fetch(playerUrl, {
           method: 'POST',
           headers: {
@@ -768,7 +769,8 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
               }
             },
             videoId
-          })
+          }),
+          signal
         });
 
         if (response.status === 429) {
@@ -782,7 +784,7 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
         }
 
         return response;
-      }, { maxRetries: 2, baseDelayMs: 1000, backoffFactor: 2 });
+      }, { maxRetries: 0 });
 
       if (!res.ok) continue;
 
@@ -793,8 +795,12 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
       if (playability === 'LOGIN_REQUIRED') {
         const isBotChallenge = !reason || /bot|captcha|unusual traffic|sign in to confirm|verify/i.test(reason);
         if (isBotChallenge) {
-          // Continue to next mobile client rather than aborting immediately
-          continue;
+          // Cloud IP blocked by YouTube BotGuard. Fail fast immediately!
+          cache.setRateLimitCooldown(60 * 1000, 'YouTube cloud IP blocked by BotGuard challenge');
+          const rateErr = new Error('YouTube cloud IP blocked by BotGuard challenge');
+          rateErr.code = 'RATE_LIMITED';
+          rateErr.status = 429;
+          throw rateErr;
         }
       }
 
@@ -854,11 +860,13 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
 
       // Fetch the caption track content
       const trackRes = await withExponentialBackoff(async () => {
+        const signal = abortSignal || AbortSignal.timeout(2000);
         const response = await fetch(chosenTrack.baseUrl, {
           headers: {
             'User-Agent': client.userAgent,
             'Accept-Language': requestedLang
-          }
+          },
+          signal
         });
         if (response.status === 429) {
           const err = new Error('YouTube returned HTTP 429 Too Many Requests fetching caption track');
@@ -866,7 +874,7 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
           throw err;
         }
         return response;
-      }, { maxRetries: 2, baseDelayMs: 1000, backoffFactor: 2 });
+      }, { maxRetries: 0 });
 
       if (!trackRes.ok) continue;
 
@@ -880,7 +888,10 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
           trackName: chosenTrack.name?.runs?.[0]?.text || chosenTrack.name?.simpleText || ''
         };
       }
-    } catch {
+    } catch (err) {
+      if (err.code === 'RATE_LIMITED' || err.status === 429) {
+        throw err;
+      }
       continue;
     }
   }
@@ -892,15 +903,17 @@ async function fetchViaInnerTube(videoId, requestedLang = 'en') {
  * Strategy 2: Web page HTML scraping fallback
  * Scrapes ytInitialPlayerResponse from the YouTube watch page.
  */
-async function fetchViaWebPageScraping(videoId, requestedLang = 'en') {
+async function fetchViaWebPageScraping(videoId, requestedLang = 'en', abortSignal = null) {
   try {
     const pageUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
     const res = await withExponentialBackoff(async () => {
+      const signal = abortSignal || AbortSignal.timeout(2000);
       const response = await fetch(pageUrl, {
         headers: {
           'User-Agent': getRandomUserAgent(),
           'Accept-Language': requestedLang
-        }
+        },
+        signal
       });
       if (response.status === 429) {
         const err = new Error('YouTube returned HTTP 429 Too Many Requests');
@@ -908,11 +921,12 @@ async function fetchViaWebPageScraping(videoId, requestedLang = 'en') {
         throw err;
       }
       return response;
-    }, { maxRetries: 2, baseDelayMs: 1000, backoffFactor: 2 });
+    }, { maxRetries: 0 });
 
     if (!res.ok) return null;
     const html = await res.text();
-    if (html.includes('class="g-recaptcha"')) {
+    if (html.includes('class="g-recaptcha"') || html.includes('sorry/index') || html.includes('unusual traffic')) {
+      cache.setRateLimitCooldown(60 * 1000, 'YouTube watch page blocked by CAPTCHA challenge');
       return null;
     }
 
@@ -957,11 +971,13 @@ async function fetchViaWebPageScraping(videoId, requestedLang = 'en') {
 
     if (!chosenTrack || !chosenTrack.baseUrl) return null;
 
+    const signal = abortSignal || AbortSignal.timeout(2000);
     const trackRes = await fetch(chosenTrack.baseUrl, {
       headers: {
         'User-Agent': getRandomUserAgent(),
         'Accept-Language': requestedLang
-      }
+      },
+      signal
     });
 
     if (!trackRes.ok) return null;
@@ -983,7 +999,7 @@ async function fetchViaWebPageScraping(videoId, requestedLang = 'en') {
 /**
  * Strategy 3: Standard youtube-transcript library fallback (with flexible language matching)
  */
-async function fetchViaYoutubeTranscriptLib(videoId, requestedLang = 'en') {
+async function fetchViaYoutubeTranscriptLib(videoId, requestedLang = 'en', abortSignal = null) {
   if (cache.isCooldownActive()) {
     return null;
   }
@@ -1017,20 +1033,23 @@ async function fetchViaYoutubeTranscriptLib(videoId, requestedLang = 'en') {
 /**
  * Strategy 4: Direct TimedText API
  */
-async function fetchViaTimedText(videoId, lang = 'en') {
+async function fetchViaTimedText(videoId, lang = 'en', abortSignal = null) {
   const timedTextUrls = [
     `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`,
     `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}`
   ];
 
   for (const url of timedTextUrls) {
+    if (abortSignal && abortSignal.aborted) break;
     try {
       const res = await withExponentialBackoff(async () => {
+        const signal = abortSignal || AbortSignal.timeout(2000);
         const response = await fetch(url, {
           headers: {
             'User-Agent': getRandomUserAgent(),
             'Accept-Language': lang
-          }
+          },
+          signal
         });
         if (response.status === 429) {
           const err = new Error('YouTube returned HTTP 429 Too Many Requests');
@@ -1038,7 +1057,7 @@ async function fetchViaTimedText(videoId, lang = 'en') {
           throw err;
         }
         return response;
-      }, { maxRetries: 2, baseDelayMs: 1000, backoffFactor: 2 });
+      }, { maxRetries: 0 });
 
       if (!res.ok) continue;
       const body = await res.text();
@@ -1212,38 +1231,40 @@ async function fetchTranscript(urlOrId, requestedLang = 'en', options = {}) {
   let transcriptData = null;
   let lastError = null;
 
-  // 4. Strategy 1: Mobile InnerTube Player API (works directly on Render & localhost)
+  // Fail fast within 3.5 seconds if cloud IP is blocked or network hangs
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    abortController.abort(new Error('YouTube request timed out (fail fast within 3.5s limit)'));
+  }, 3500);
+
   try {
-    transcriptData = await fetchViaInnerTube(videoId, requestedLang);
+    // 4. Strategy 1: Mobile InnerTube Player API (works directly on Render & localhost)
+    transcriptData = await fetchViaInnerTube(videoId, requestedLang, abortController.signal);
+
+    // 5. Strategy 2: Web page HTML scraping fallback
+    if (!transcriptData && !cache.isCooldownActive() && !abortController.signal.aborted) {
+      transcriptData = await fetchViaWebPageScraping(videoId, requestedLang, abortController.signal);
+    }
+
+    // 6. Strategy 3: Standard youtube-transcript library fallback
+    if (!transcriptData && !cache.isCooldownActive() && !abortController.signal.aborted) {
+      transcriptData = await Promise.race([
+        fetchViaYoutubeTranscriptLib(videoId, requestedLang, abortController.signal),
+        new Promise((_, reject) => {
+          if (abortController.signal.aborted) reject(new Error('Aborted'));
+          abortController.signal.addEventListener('abort', () => reject(new Error('Aborted')));
+        })
+      ]).catch(() => null);
+    }
+
+    // 7. Strategy 4: Direct TimedText API fallback
+    if (!transcriptData && !cache.isCooldownActive() && !abortController.signal.aborted) {
+      transcriptData = await fetchViaTimedText(videoId, requestedLang, abortController.signal);
+    }
   } catch (err) {
     lastError = err;
-  }
-
-  // 5. Strategy 2: Web page HTML scraping fallback
-  if (!transcriptData && !cache.isCooldownActive()) {
-    try {
-      transcriptData = await fetchViaWebPageScraping(videoId, requestedLang);
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  // 6. Strategy 3: Standard youtube-transcript library fallback
-  if (!transcriptData && !cache.isCooldownActive()) {
-    try {
-      transcriptData = await fetchViaYoutubeTranscriptLib(videoId, requestedLang);
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  // 7. Strategy 4: Direct TimedText API fallback
-  if (!transcriptData && !cache.isCooldownActive()) {
-    try {
-      transcriptData = await fetchViaTimedText(videoId, requestedLang);
-    } catch (err) {
-      lastError = err;
-    }
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const metadata = await metadataPromise;

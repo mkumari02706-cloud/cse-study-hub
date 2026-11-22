@@ -31,14 +31,23 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
     throw new Error('GEMINI_API_KEY is not configured in environment variables.');
   }
 
-  const modelsToTry = [
-    preferredModel,
-    process.env.GEMINI_MODEL,
-    'gemini-3.8-flash',
-    'gemini-flash-latest',
+  const activeFallbackModels = [
     'gemini-flash-lite-latest',
-    'gemini-3.5-flash-lite'
-  ].filter((m, idx, arr) => m && typeof m === 'string' && m.trim() && arr.indexOf(m) === idx);
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-flash-latest'
+  ];
+
+  const candidate = (preferredModel && !preferredModel.includes('gemini-2.5-flash')) ? preferredModel.trim() : null;
+  const envModel = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash')) ? process.env.GEMINI_MODEL.trim() : null;
+
+  const modelsToTry = [
+    candidate,
+    envModel,
+    ...activeFallbackModels
+  ]
+    .filter(Boolean)
+    .filter((m, idx, arr) => arr.indexOf(m) === idx);
 
   let lastError = null;
   for (const model of modelsToTry) {
@@ -127,7 +136,9 @@ async function callLLM(systemInstruction, userPrompt, jsonMode = false) {
   const openaiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim();
 
   if (geminiKey) {
-    const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+    const model = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash'))
+      ? process.env.GEMINI_MODEL
+      : 'gemini-flash-lite-latest';
     const generationConfig = {
       temperature: 0.2,
       maxOutputTokens: 8192
@@ -196,7 +207,9 @@ async function callGeminiMultimodal(systemInstruction, userPrompt, base64Data, m
     throw new Error('GEMINI_API_KEY is required in .env for multimodal PDF analysis.');
   }
 
-  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  const model = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash'))
+    ? process.env.GEMINI_MODEL
+    : 'gemini-flash-lite-latest';
   const generationConfig = {
     temperature: 0.2,
     maxOutputTokens: 8192
@@ -513,44 +526,105 @@ Provide clean, compilable, fully documented code examples relevant to the lectur
 }
 
 /**
- * Generates all 5 study sections for a lecture
+ * Generates all 5 study sections for a lecture in 1 single Gemini JSON API call.
+ * Generates:
+ * 1. hinglish: Conversational Hinglish conceptual guide for Indian CSE students.
+ * 2. examNotes: Formal university standard academic exam notes.
+ * 3. importantQuestions: 2-Mark, 5-Mark, and 10-Mark university exam questions with model answers.
+ * 4. quickRevision: Last-minute revision sheet, formulas, and comparison table.
+ * 5. codeExamples: Compilable code implementation, logic breakdown, dry-run state trace table, and complexities.
+ *
+ * Saves 4 API calls per lecture, preventing Free-Tier quota exhaustion (20/day limit) by increasing capacity 5x.
  */
 async function generateFullStudyPack(subjectName, topicName, transcript, includeCode = true) {
   if (!isConfigured()) {
     throw new Error('API key not configured. Please set GEMINI_API_KEY in your .env file.');
   }
 
-  const results = {};
-  const promises = [
-    generateHinglish(subjectName, topicName, transcript)
-      .then(res => { results.hinglish = res; })
-      .catch(err => { results.hinglish = `*Error generating Hinglish notes: ${err.message}*`; }),
+  const systemPrompt = `You are a distinguished Professor of Computer Science & Engineering and curriculum expert.
+Analyze the provided lecture transcript for "${topicName}" in "${subjectName}" and generate a comprehensive, high-quality, university-standard 5-part study pack for undergraduate CSE students.
 
-    generateExamNotes(subjectName, topicName, transcript)
-      .then(res => { results.examNotes = res; })
-      .catch(err => { results.examNotes = `*Error generating Exam notes: ${err.message}*`; }),
+You must return valid, strictly parseable JSON with the following structure:
+{
+  "hinglish": "Detailed Hinglish conceptual explanation in GitHub-flavored Markdown...",
+  "examNotes": "Formal university exam notes in GitHub-flavored Markdown...",
+  "importantQuestions": "Exam questions (2-mark, 5-mark, 10-mark) with model answer outlines in GitHub-flavored Markdown...",
+  "quickRevision": "Last-minute revision bullet points, formulas, comparison table, and mnemonics in GitHub-flavored Markdown...",
+  "codeExamples": ${includeCode ? '"Clean compilable code examples with line-by-line explanation, dry-run state trace table, expected output, and time/space complexity in GitHub-flavored Markdown..."' : 'null'}
+}
 
-    generateImportantQuestions(subjectName, topicName, transcript)
-      .then(res => { results.importantQuestions = res; })
-      .catch(err => { results.importantQuestions = `*Error generating Questions: ${err.message}*`; }),
+SECTION SPECIFICATIONS:
+1. "hinglish":
+   - Conversational Hindi grammar written in Latin script with standard English technical terms (e.g. "Jab hum ek class define karte hain, to JVM memory allocate karta hai...").
+   - Relatable real-world analogies suitable for Indian college engineering students.
+   - Based STRICTLY on the facts presented in the lecture transcript.
+   - Formatted with clear Markdown headings (###), bold key terms, and bullet points.
 
-    generateQuickRevision(subjectName, topicName, transcript)
-      .then(res => { results.quickRevision = res; })
-      .catch(err => { results.quickRevision = `*Error generating Revision notes: ${err.message}*`; })
-  ];
+2. "examNotes":
+   - Formal, precise academic English adhering to university exam marking criteria.
+   - Formal definitions, theoretical foundation, step-by-step working principles, architecture/flow description, advantages, limitations, and pro exam tips.
 
-  if (includeCode) {
-    promises.push(
-      generateCodeExamples(subjectName, topicName, transcript)
-        .then(res => { results.codeExamples = res; })
-        .catch(err => { results.codeExamples = `*Error generating Code examples: ${err.message}*`; })
-    );
-  } else {
-    results.codeExamples = null;
+3. "importantQuestions":
+   - 2-Mark Short Answer Questions (Definitions, Distinctions).
+   - 5-Mark Conceptual Questions (Mechanisms, Comparisons).
+   - 10-Mark Detailed / Analytical Questions (Architecture, Problem Solving).
+   - Concise Model Answer Outline for every question based on the lecture.
+
+4. "quickRevision":
+   - 60-Second Core Concept Summary (3-5 punchy bullets).
+   - Markdown Comparison Table (contrasting key concepts or algorithms).
+   - Essential Formulas, Complexities & Bounds (Time, Space, Constraints).
+   - Key Memory Hooks & Mnemonics to recall points in exams.
+
+5. "codeExamples":
+   ${includeCode
+     ? '- Clean, compilable code relevant to the lecture topic with clear comments.\n   - Step-by-step logic breakdown.\n   - Dry Run / Variable State Trace Table demonstrating sample inputs and execution.\n   - Expected Output block.\n   - Time and Space Complexity Analysis.'
+     : '- Set to null (code is not required for this subject).'
+   }
+
+RULES:
+- Return ONLY valid JSON matching this schema.
+- Do NOT wrap JSON in explanatory text outside the JSON.`;
+
+  const safeTranscript = (transcript || '').slice(0, 20000);
+  const userPrompt = `Subject: ${subjectName}\nTopic: ${topicName}\n\nLecture Transcript:\n"""\n${safeTranscript}\n"""\n\nGenerate the complete 5-section study pack in the required JSON format.`;
+
+  try {
+    const rawJson = await callLLM(systemPrompt, userPrompt, true);
+    let parsed = null;
+    try {
+      parsed = JSON.parse(rawJson);
+    } catch (e) {
+      const clean = rawJson.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+      try {
+        parsed = JSON.parse(clean);
+      } catch (e2) {
+        const match = rawJson.match(/\{[\s\S]*\}/);
+        if (match) {
+          parsed = JSON.parse(match[0]);
+        } else {
+          throw new Error(`Failed to parse AI study pack JSON: ${e.message}`);
+        }
+      }
+    }
+
+    return {
+      hinglish: parsed?.hinglish || '*No Hinglish notes generated.*',
+      examNotes: parsed?.examNotes || '*No Exam notes generated.*',
+      importantQuestions: parsed?.importantQuestions || '*No Questions generated.*',
+      quickRevision: parsed?.quickRevision || '*No Revision summary generated.*',
+      codeExamples: includeCode ? (parsed?.codeExamples || '*No Code examples generated.*') : null
+    };
+  } catch (err) {
+    console.warn(`[AI Service] Single-call study pack generation failed (${err.message}). Returning structured fallback pack.`);
+    return {
+      hinglish: `*Error generating Hinglish notes: ${err.message}*`,
+      examNotes: `*Error generating Exam notes: ${err.message}*`,
+      importantQuestions: `*Error generating Questions: ${err.message}*`,
+      quickRevision: `*Error generating Revision notes: ${err.message}*`,
+      codeExamples: includeCode ? `*Error generating Code examples: ${err.message}*` : null
+    };
   }
-
-  await Promise.all(promises);
-  return results;
 }
 
 /**

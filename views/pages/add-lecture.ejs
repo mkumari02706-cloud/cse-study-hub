@@ -103,8 +103,8 @@
         <!-- Transcript Preview Box -->
         <textarea id="transcriptPreview" class="form-control hidden" rows="8" readonly placeholder="Transcript will appear here..."></textarea>
 
-        <!-- Manual Transcript & Media Fallback Box -->
-        <div id="manualTranscriptBox" class="hidden" style="margin-top: 16px; padding: 18px; background: var(--bg-primary); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
+        <!-- Manual Transcript & Media Fallback Box (Always Visible) -->
+        <div id="manualTranscriptBox" style="margin-top: 16px; padding: 18px; background: var(--bg-primary); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
             <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0;">📝 Alternative Input Options (Subtitle / Media)</h4>
           </div>
@@ -131,8 +131,8 @@
         </div>
       </div>
 
-      <!-- Step 3: AI Study Material Generator (Shown when transcript is available) -->
-      <div id="aiGeneratorSection" class="card hidden">
+      <!-- Step 3: AI Study Material Generator (Always Visible) -->
+      <div id="aiGeneratorSection" class="card">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
           <h2 style="font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
             <span style="background: var(--accent-light); color: var(--accent-primary); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem;">3</span>
