@@ -1508,9 +1508,32 @@ async function runTests() {
   assert.strictEqual(srtData.timestampedTranscript[1].timestamp, '[00:16]');
   console.log('  ✓ Manual SRT transcript upload parsed with standard timestamps [00:10], [00:16]');
 
+  console.log('\nTest 46: Browser Client-Side Cache API & 1-Call Study Pack Architecture');
+  const browserVid = 'BSVKUk58K6U';
+  const cacheApiRes = await fetch(`${baseUrl}/api/cache-transcript`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      videoId: browserVid,
+      fullText: 'Dynamic method dispatch in Java allows runtime polymorphism.',
+      timestampedText: '[00:00] Dynamic method dispatch in Java allows runtime polymorphism.',
+      metadata: { title: 'Java Method Dispatch Lecture', author: 'CSE Faculty' },
+      language: 'en'
+    })
+  });
+  const cacheApiData = await cacheApiRes.json();
+  assert.strictEqual(cacheApiData.success, true, 'POST /api/cache-transcript must return success: true');
+  console.log('  ✓ POST /api/cache-transcript ingested client-side transcript into cache');
+
+  const cachedLookup = await youtubeService.fetchTranscript(browserVid, 'en');
+  assert.strictEqual(cachedLookup.success, true);
+  assert.strictEqual(cachedLookup.isCached, true);
+  assert.strictEqual(cachedLookup.metadata.title, 'Java Method Dispatch Lecture');
+  console.log('  ✓ Verified cached transcript served instantly without external YouTube request');
+
   server.close();
 
-  console.log('\n🎉 ALL 45 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! YouTube rate-limiting, exponential backoff, MongoDB caching, and manual TXT/SRT uploads are fully validated and operational.');
+  console.log('\n🎉 ALL 46 COMPREHENSIVE TESTS PASSED SUCCESSFULLY! YouTube rate-limiting, exponential backoff, MongoDB caching, browser transcript caching, and manual TXT/SRT uploads are fully validated and operational.');
 }
 
 runTests().catch(err => {

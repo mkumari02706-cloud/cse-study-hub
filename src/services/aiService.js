@@ -60,7 +60,7 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
           'x-goog-api-key': cleanKey
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000) // 10s timeout per attempt to avoid hanging
+        signal: AbortSignal.timeout(55000) // 55s timeout per attempt to allow full single-call study pack generation
       });
 
       if (!res.ok) {
@@ -536,6 +536,114 @@ Provide clean, compilable, fully documented code examples relevant to the lectur
  *
  * Saves 4 API calls per lecture, preventing Free-Tier quota exhaustion (20/day limit) by increasing capacity 5x.
  */
+/**
+ * Robust JSON parser for single-call study pack responses.
+ * Handles markdown code blocks, outermost object matching, truncated strings,
+ * unclosed braces, and falls back to regex section extraction.
+ */
+function safeParseStudyPackJSON(rawText) {
+  if (!rawText || typeof rawText !== 'string') return null;
+
+  // 1. Direct JSON parse
+  try {
+    return JSON.parse(rawText.trim());
+  } catch (_) {}
+
+  // 2. Strip markdown code fences (```json ... ``` or ``` ...)
+  let cleaned = rawText.trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```[\s\S]*$/i, '')
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {}
+
+  // 3. Outermost JSON object boundary
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = cleaned.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch (_) {}
+  }
+
+  // 4. Truncated JSON Repair Attempt (e.g. cut off inside string or unclosed braces)
+  if (firstBrace !== -1) {
+    let sub = cleaned.slice(firstBrace);
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < sub.length; i++) {
+      const char = sub[i];
+      if (char === '\\' && !escaped) {
+        escaped = true;
+      } else {
+        if (char === '"' && !escaped) {
+          inString = !inString;
+        }
+        escaped = false;
+      }
+    }
+    let repaired = inString ? sub + '"' : sub;
+    const stack = [];
+    inString = false;
+    escaped = false;
+    for (let i = 0; i < repaired.length; i++) {
+      const char = repaired[i];
+      if (char === '\\' && !escaped) {
+        escaped = true;
+      } else {
+        if (char === '"' && !escaped) {
+          inString = !inString;
+        } else if (!inString) {
+          if (char === '{' || char === '[') stack.push(char);
+          else if (char === '}' && stack[stack.length - 1] === '{') stack.pop();
+          else if (char === ']' && stack[stack.length - 1] === '[') stack.pop();
+        }
+        escaped = false;
+      }
+    }
+    while (stack.length > 0) {
+      const open = stack.pop();
+      repaired += open === '{' ? '}' : ']';
+    }
+
+    try {
+      return JSON.parse(repaired);
+    } catch (_) {}
+  }
+
+  // 5. Section-by-Section Regex Extractor Fallback
+  const sections = ['hinglish', 'examNotes', 'importantQuestions', 'quickRevision', 'codeExamples'];
+  const extracted = {};
+  let anyFound = false;
+
+  for (let i = 0; i < sections.length; i++) {
+    const key = sections[i];
+    const otherKeys = sections.filter(k => k !== key).join('|');
+    const regex = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)(?="${otherKeys}"\\s*:|"$|}\\s*$)`, 'i');
+    const match = cleaned.match(regex);
+    if (match && match[1]) {
+      anyFound = true;
+      let val = match[1].trim();
+      val = val.replace(/",?\s*$/, '');
+      val = val.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+      extracted[key] = val;
+    }
+  }
+
+  if (anyFound) {
+    return extracted;
+  }
+
+  return null;
+}
+
+/**
+ * Generates all 5 comprehensive study pack sections in 1 SINGLE Gemini JSON API call.
+ * Saves 4 API calls per lecture, preventing Free-Tier quota exhaustion (20/day limit) by increasing capacity 5x.
+ */
 async function generateFullStudyPack(subjectName, topicName, transcript, includeCode = true) {
   if (!isConfigured()) {
     throw new Error('API key not configured. Please set GEMINI_API_KEY in your .env file.');
@@ -591,29 +699,18 @@ RULES:
 
   try {
     const rawJson = await callLLM(systemPrompt, userPrompt, true);
-    let parsed = null;
-    try {
-      parsed = JSON.parse(rawJson);
-    } catch (e) {
-      const clean = rawJson.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
-      try {
-        parsed = JSON.parse(clean);
-      } catch (e2) {
-        const match = rawJson.match(/\{[\s\S]*\}/);
-        if (match) {
-          parsed = JSON.parse(match[0]);
-        } else {
-          throw new Error(`Failed to parse AI study pack JSON: ${e.message}`);
-        }
-      }
+    const parsed = safeParseStudyPackJSON(rawJson);
+
+    if (!parsed) {
+      throw new Error('Failed to parse AI study pack JSON from LLM response.');
     }
 
     return {
-      hinglish: parsed?.hinglish || '*No Hinglish notes generated.*',
-      examNotes: parsed?.examNotes || '*No Exam notes generated.*',
-      importantQuestions: parsed?.importantQuestions || '*No Questions generated.*',
-      quickRevision: parsed?.quickRevision || '*No Revision summary generated.*',
-      codeExamples: includeCode ? (parsed?.codeExamples || '*No Code examples generated.*') : null
+      hinglish: parsed.hinglish || '*No Hinglish notes generated.*',
+      examNotes: parsed.examNotes || '*No Exam notes generated.*',
+      importantQuestions: parsed.importantQuestions || '*No Questions generated.*',
+      quickRevision: parsed.quickRevision || '*No Revision summary generated.*',
+      codeExamples: includeCode ? (parsed.codeExamples || '*No Code examples generated.*') : null
     };
   } catch (err) {
     console.warn(`[AI Service] Single-call study pack generation failed (${err.message}). Returning structured fallback pack.`);

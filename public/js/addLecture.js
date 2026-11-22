@@ -123,6 +123,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const lines = content.split(/\r?\n/);
     const items = [];
 
+    // 0. Check if JSON3 / JSON format (YouTube & Piped JSON caption event stream)
+    if (content.startsWith('{') || content.startsWith('[')) {
+      try {
+        const jsonData = JSON.parse(content);
+        if (Array.isArray(jsonData.events)) {
+          for (const ev of jsonData.events) {
+            if (!ev.segs || !Array.isArray(ev.segs)) continue;
+            const text = ev.segs.map(s => s.utf8 || '').join('').replace(/[\r\n]+/g, ' ').trim();
+            if (!text || text === '\n') continue;
+            const startSec = Math.floor((ev.tStartMs || 0) / 1000);
+            const mins = Math.floor(startSec / 60).toString().padStart(2, '0');
+            const secs = (startSec % 60).toString().padStart(2, '0');
+            items.push({
+              timestamp: `[${mins}:${secs}]`,
+              offsetSec: startSec,
+              text: decodeHtml(text)
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
     // 1. Check if VTT or SRT format
     const timecodeRegex = /(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.]\d{3}\s*-->\s*(?:(\d{1,2}):)?(\d{2}):(\d{2})[,.]\d{3}/;
     const isVttOrSrt = content.includes('WEBVTT') || lines.some(l => timecodeRegex.test(l));
@@ -252,12 +274,113 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Fetches captions directly from multiple public Piped & Invidious mirror endpoints and proxy fallbacks
+   * Fetches captions directly from multiple reliable client-side methods in parallel/sequence:
+   * 1. YouTube direct timedtext list & track URLs via working CORS proxies (allorigins, corsproxy.io, codetabs)
+   * 2. Public Piped & Invidious API endpoints
+   * 3. Scrape captionTracks from youtube.com/watch?v=... via working CORS proxies
    */
   async function fetchTranscriptFromBrowser(videoId, requestedLang = 'en') {
     if (!videoId) return { success: false, error: 'No video ID provided' };
 
-    // 1. Piped API instances
+    const corsProxies = [
+      url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+      url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
+
+    async function fetchWithProxies(targetUrl, timeoutMs = 4500) {
+      for (const proxyFn of corsProxies) {
+        try {
+          const pUrl = proxyFn(targetUrl);
+          const res = await fetch(pUrl, { signal: AbortSignal.timeout(timeoutMs) });
+          if (!res.ok) continue;
+          const text = await res.text();
+          if (!text || text.includes('A valid API key is required') || text.includes('Error:')) continue;
+          // If allorigins returns wrapped json: {"contents": "..."}
+          if (text.startsWith('{"contents":')) {
+            try {
+              const parsed = JSON.parse(text);
+              if (parsed.contents) return parsed.contents;
+            } catch (_) {}
+          }
+          return text;
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    // Method 1: YouTube's direct timedtext API list & track URLs via CORS proxies
+    try {
+      // 1a. Query timedtext type=list to discover available caption tracks
+      const listUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&type=list`;
+      const listXml = await fetchWithProxies(listUrl, 4500);
+      if (listXml && (listXml.includes('<track') || listXml.includes('<transcript_list'))) {
+        const trackRegex = /<track\s+([^>]+)\/?>/g;
+        let match;
+        const tracks = [];
+        while ((match = trackRegex.exec(listXml)) !== null) {
+          const attrs = match[1];
+          const langMatch = attrs.match(/lang_code="([^"]*)"/);
+          const nameMatch = attrs.match(/name="([^"]*)"/);
+          const defaultMatch = attrs.match(/lang_default="([^"]*)"/);
+          if (langMatch) {
+            tracks.push({
+              langCode: langMatch[1],
+              name: nameMatch ? nameMatch[1] : '',
+              isDefault: defaultMatch ? defaultMatch[1] === 'true' : false
+            });
+          }
+        }
+
+        if (tracks.length > 0) {
+          const chosen = tracks.find(t => t.langCode === requestedLang) ||
+                         tracks.find(t => t.langCode.startsWith(requestedLang)) ||
+                         tracks.find(t => t.langCode === 'en' || t.langCode.startsWith('en')) ||
+                         tracks.find(t => t.langCode === 'hi' || t.langCode.startsWith('hi')) ||
+                         tracks.find(t => t.isDefault) ||
+                         tracks[0];
+
+          for (const fmt of ['vtt', 'srv3']) {
+            const trackUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${chosen.langCode}${chosen.name ? `&name=${encodeURIComponent(chosen.name)}` : ''}&fmt=${fmt}`;
+            const subContent = await fetchWithProxies(trackUrl, 4500);
+            if (subContent) {
+              const parsed = parseBrowserSubtitleTrack(subContent, chosen.langCode);
+              if (parsed && parsed.wordCount > 10) {
+                return {
+                  success: true,
+                  ...parsed,
+                  language: chosen.langCode,
+                  source: 'YouTube TimedText (Track List)'
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // 1b. Direct timedtext track queries for requested and common languages
+      const candidateLangs = [requestedLang, 'en', 'hi'].filter((v, i, a) => v && a.indexOf(v) === i);
+      for (const lang of candidateLangs) {
+        for (const fmt of ['vtt', 'srv3']) {
+          const directUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=${fmt}`;
+          const subContent = await fetchWithProxies(directUrl, 3500);
+          if (subContent) {
+            const parsed = parseBrowserSubtitleTrack(subContent, lang);
+            if (parsed && parsed.wordCount > 10) {
+              return {
+                success: true,
+                ...parsed,
+                language: lang,
+                source: 'YouTube Direct TimedText'
+              };
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Method 2: Public Piped & Invidious APIs
+    // 2a. Piped instances
     const pipedInstances = [
       'https://pipedapi.kavin.rocks',
       'https://pipedapi.adminforge.de',
@@ -284,9 +407,14 @@ document.addEventListener('DOMContentLoaded', () => {
                      subtitles[0];
 
         if (chosen && chosen.url) {
-          const subRes = await fetch(chosen.url, { signal: AbortSignal.timeout(4000) });
-          if (subRes.ok) {
-            const raw = await subRes.text();
+          let raw = null;
+          try {
+            const subRes = await fetch(chosen.url, { signal: AbortSignal.timeout(4000) });
+            if (subRes.ok) raw = await subRes.text();
+          } catch (_) {
+            raw = await fetchWithProxies(chosen.url, 4000);
+          }
+          if (raw) {
             const parsed = parseBrowserSubtitleTrack(raw, chosen.code || requestedLang);
             if (parsed && parsed.wordCount > 10) {
               return {
@@ -299,12 +427,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         }
-      } catch (e) {
-        // Continue to next mirror
-      }
+      } catch (_) {}
     }
 
-    // 2. Invidious Captions API instances
+    // 2b. Invidious Captions API instances
     const invidiousInstances = [
       'https://inv.nadeko.net',
       'https://invidious.nerdvpn.de',
@@ -330,9 +456,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (chosen && chosen.url) {
           const fullUrl = chosen.url.startsWith('http') ? chosen.url : `${base}${chosen.url}`;
-          const subRes = await fetch(fullUrl, { signal: AbortSignal.timeout(4000) });
-          if (subRes.ok) {
-            const raw = await subRes.text();
+          let raw = null;
+          try {
+            const subRes = await fetch(fullUrl, { signal: AbortSignal.timeout(4000) });
+            if (subRes.ok) raw = await subRes.text();
+          } catch (_) {
+            raw = await fetchWithProxies(fullUrl, 4000);
+          }
+          if (raw) {
             const parsed = parseBrowserSubtitleTrack(raw, chosen.languageCode || requestedLang);
             if (parsed && parsed.wordCount > 10) {
               return {
@@ -344,41 +475,116 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         }
-      } catch (e) {
-        // Continue to next mirror
-      }
+      } catch (_) {}
     }
 
-    // 3. Fallback: CORS Proxy TimedText
-    const proxyUrls = [
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=${requestedLang}`)}`,
-      `https://corsproxy.io/?url=${encodeURIComponent(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=${requestedLang}`)}`
-    ];
+    // Method 3: Scrape captionTracks from YouTube watch page via CORS proxies
+    try {
+      const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const html = await fetchWithProxies(watchUrl, 5000);
+      if (html && html.includes('captionTracks')) {
+        let title = null;
+        const titleMatch = html.match(/<title>(.*?)(?: - YouTube)?<\/title>/i) ||
+                           html.match(/"videoDetails":\{.*?"title":"([^"]+)"/);
+        if (titleMatch) {
+          title = decodeHtml(titleMatch[1]).replace(/\s*-\s*YouTube$/i, '').trim();
+        }
 
-    for (const pUrl of proxyUrls) {
-      try {
-        const pRes = await fetch(pUrl, { signal: AbortSignal.timeout(4000) });
-        if (pRes.ok) {
-          const raw = await pRes.text();
-          const parsed = parseBrowserSubtitleTrack(raw, requestedLang);
-          if (parsed && parsed.wordCount > 10) {
-            return {
-              success: true,
-              ...parsed,
-              language: requestedLang,
-              source: 'CORS Proxy TimedText'
-            };
+        const tracksMatch = html.match(/"captionTracks":\s*(\[[^\]]+\])/);
+        if (tracksMatch) {
+          let tracks = [];
+          try {
+            tracks = JSON.parse(tracksMatch[1]);
+          } catch (_) {}
+
+          if (Array.isArray(tracks) && tracks.length > 0) {
+            let chosen = tracks.find(t => t.languageCode === requestedLang) ||
+                         tracks.find(t => t.languageCode && t.languageCode.startsWith(requestedLang)) ||
+                         tracks.find(t => t.languageCode === 'en' || t.languageCode?.startsWith('en')) ||
+                         tracks.find(t => t.languageCode === 'hi' || t.languageCode?.startsWith('hi')) ||
+                         tracks[0];
+
+            if (chosen && chosen.baseUrl) {
+              for (const targetUrl of [`${chosen.baseUrl}&fmt=vtt`, chosen.baseUrl]) {
+                const subContent = await fetchWithProxies(targetUrl, 4500);
+                if (subContent) {
+                  const parsed = parseBrowserSubtitleTrack(subContent, chosen.languageCode || requestedLang);
+                  if (parsed && parsed.wordCount > 10) {
+                    return {
+                      success: true,
+                      ...parsed,
+                      title,
+                      language: chosen.languageCode || requestedLang,
+                      isAutoGenerated: chosen.vssId ? chosen.vssId.startsWith('a.') : false,
+                      source: 'YouTube Watch Page Scraper'
+                    };
+                  }
+                }
+              }
+            }
           }
         }
-      } catch (e) {
-        // Continue
       }
-    }
+    } catch (_) {}
 
     return {
       success: false,
-      error: 'Could not fetch captions from any public Piped/Invidious mirror or proxy.'
+      error: 'Could not fetch captions from YouTube timedtext, Piped/Invidious mirrors, or watch page proxy.'
     };
+  }
+
+  /**
+   * Caches transcript to backend, updates DOM, and triggers study pack generation.
+   */
+  async function handleBrowserTranscriptSuccess(browserResult, videoId) {
+    currentTranscript = browserResult.fullText || browserResult.timestampedText;
+    if (!currentVideoMetadata) {
+      currentVideoMetadata = {
+        videoId,
+        title: browserResult.title || `Lecture (${videoId})`
+      };
+    } else if (browserResult.title && (!currentVideoMetadata.title || currentVideoMetadata.title.startsWith('YouTube Lecture'))) {
+      currentVideoMetadata.title = browserResult.title;
+    }
+
+    const titleInput = document.getElementById('lectureTitleInput');
+    if (titleInput && !titleInput.value && currentVideoMetadata.title) {
+      titleInput.value = currentVideoMetadata.title;
+    }
+
+    if (transcriptPreview) {
+      transcriptPreview.value = browserResult.timestampedText || browserResult.fullText;
+      transcriptPreview.classList.remove('hidden');
+    }
+    if (manualTranscriptArea) {
+      manualTranscriptArea.value = browserResult.fullText;
+    }
+
+    // Cache transcript on server via /api/cache-transcript
+    try {
+      fetch('/api/cache-transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId,
+          fullText: browserResult.fullText,
+          timestampedText: browserResult.timestampedText,
+          metadata: currentVideoMetadata,
+          language: browserResult.language || (langSelect ? langSelect.value : 'en'),
+          rawItems: browserResult.rawItems || [],
+          isAutoGenerated: Boolean(browserResult.isAutoGenerated)
+        })
+      }).catch(e => console.warn('[Cache Transcript Failed]', e));
+    } catch (_) {}
+
+    showStatus(`✅ Transcript retrieved automatically via ${browserResult.source} (${browserResult.wordCount} words). Generating complete study pack with AI...`, 'info', true);
+
+    // Enable AI Generator and directly trigger automatic generation
+    enableAIGenerator();
+    const genBtn = document.getElementById('generateAllBtn');
+    if (genBtn) {
+      genBtn.click();
+    }
   }
 
   if (fetchTranscriptBtn) {
@@ -442,41 +648,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Step 2: Server IP was blocked or failed, try browser-side multi-source fetcher!
         if (videoId) {
-          showStatus('⏳ Cloud server IP blocked by YouTube. Fetching captions directly via browser mirrors (Piped & Invidious)...', 'info', true);
+          showStatus('⏳ Cloud server IP blocked by YouTube. Fetching captions directly via browser mirrors (Piped, Invidious & proxies)...', 'info', true);
           const browserResult = await fetchTranscriptFromBrowser(videoId, langSelect.value);
 
           if (browserResult.success) {
-            currentTranscript = browserResult.fullText || browserResult.timestampedText;
-            if (!currentVideoMetadata) {
-              currentVideoMetadata = {
-                videoId,
-                title: browserResult.title || `Lecture (${videoId})`
-              };
-            } else if (browserResult.title && (!currentVideoMetadata.title || currentVideoMetadata.title.startsWith('YouTube Lecture'))) {
-              currentVideoMetadata.title = browserResult.title;
-            }
-
-            const titleInput = document.getElementById('lectureTitleInput');
-            if (titleInput && !titleInput.value && currentVideoMetadata.title) {
-              titleInput.value = currentVideoMetadata.title;
-            }
-
-            if (transcriptPreview) {
-              transcriptPreview.value = browserResult.timestampedText || browserResult.fullText;
-              transcriptPreview.classList.remove('hidden');
-            }
-            if (manualTranscriptArea) {
-              manualTranscriptArea.value = browserResult.fullText;
-            }
-
-            showStatus(`✅ Transcript retrieved automatically via ${browserResult.source} (${browserResult.wordCount} words). Generating complete study pack with AI...`, 'info', true);
-
-            // Enable AI Generator and directly trigger automatic generation
-            enableAIGenerator();
-            const genBtn = document.getElementById('generateAllBtn');
-            if (genBtn) {
-              genBtn.click();
-            }
+            await handleBrowserTranscriptSuccess(browserResult, videoId);
             return;
           }
         }
@@ -497,25 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showStatus('⏳ Attempting browser-side multi-source caption fetcher...', 'info', true);
             const browserResult = await fetchTranscriptFromBrowser(videoId, langSelect.value);
             if (browserResult.success) {
-              currentTranscript = browserResult.fullText || browserResult.timestampedText;
-              currentVideoMetadata = { videoId, title: browserResult.title || `Lecture (${videoId})` };
-              const titleInput = document.getElementById('lectureTitleInput');
-              if (titleInput && !titleInput.value && browserResult.title) {
-                titleInput.value = browserResult.title;
-              }
-              if (transcriptPreview) {
-                transcriptPreview.value = browserResult.timestampedText || browserResult.fullText;
-                transcriptPreview.classList.remove('hidden');
-              }
-              if (manualTranscriptArea) {
-                manualTranscriptArea.value = browserResult.fullText;
-              }
-              showStatus(`✅ Transcript retrieved automatically via ${browserResult.source} (${browserResult.wordCount} words). Generating complete study pack with AI...`, 'info', true);
-              enableAIGenerator();
-              const genBtn = document.getElementById('generateAllBtn');
-              if (genBtn) {
-                genBtn.click();
-              }
+              await handleBrowserTranscriptSuccess(browserResult, videoId);
               return;
             }
           } catch (e2) {}
