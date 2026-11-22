@@ -8,23 +8,14 @@ const TRANSCRIPT_CACHE_MODEL_PATH = path.join(ROOT_DATA_DIR, 'transcript_cache.j
 const LECTURE_TRANSCRIPTS_PATH = path.join(ROOT_DATA_DIR, 'lecture_transcripts.json');
 const LIBRARY_PATH = path.join(ROOT_DATA_DIR, 'library.json');
 
-// Lazy model loader to safely access MongoDB / Mongoose models without circular dependency
 let modelsRef = null;
 function getModels() {
   if (!modelsRef) {
-    try {
-      modelsRef = require('../models');
-    } catch {
-      modelsRef = {};
-    }
+    try { modelsRef = require('../models'); } catch { modelsRef = {}; }
   }
   return modelsRef;
 }
 
-/**
- * Multi-Tier Request & Result Cache (In-Memory L1 + MongoDB/Mongoose L2 + Persistent Disk L3)
- * with TTL and Rate-Limit Cooldown Tracker
- */
 class TranscriptCache {
   constructor(defaultTtlMs = 60 * 60 * 1000) {
     this.cache = new Map();
@@ -39,24 +30,17 @@ class TranscriptCache {
   loadPersistentCache() {
     try {
       if (fs.existsSync(this.cacheFilePath)) {
-        const raw = fs.readFileSync(this.cacheFilePath, 'utf-8');
-        const diskData = JSON.parse(raw);
+        const diskData = JSON.parse(fs.readFileSync(this.cacheFilePath, 'utf-8'));
         const now = Date.now();
         for (const [key, entry] of Object.entries(diskData)) {
-          if (entry && entry.expiresAt && entry.expiresAt > now) {
-            this.cache.set(key, entry);
-          }
+          if (entry && entry.expiresAt && entry.expiresAt > now) this.cache.set(key, entry);
         }
       }
-    } catch {
-      // Ignore disk cache load error gracefully
-    }
+    } catch {}
 
-    // Populate cache from existing saved lectures in lecture_transcripts.json
     try {
       if (fs.existsSync(LECTURE_TRANSCRIPTS_PATH)) {
-        const raw = fs.readFileSync(LECTURE_TRANSCRIPTS_PATH, 'utf-8');
-        const lectures = JSON.parse(raw);
+        const lectures = JSON.parse(fs.readFileSync(LECTURE_TRANSCRIPTS_PATH, 'utf-8'));
         if (Array.isArray(lectures)) {
           for (const item of lectures) {
             const vidId = item.videoId || extractVideoId(item.sourceUrl);
@@ -82,7 +66,7 @@ class TranscriptCache {
                     fullText,
                     rawItems: item.transcriptLines || []
                   },
-                  expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+                  expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000),
                   createdAt: Date.now()
                 });
               }
@@ -90,28 +74,20 @@ class TranscriptCache {
           }
         }
       }
-    } catch {
-      // Ignore gracefully
-    }
+    } catch {}
   }
 
   savePersistentCache() {
     try {
       const dir = path.dirname(this.cacheFilePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       const diskData = {};
       const now = Date.now();
       for (const [key, entry] of this.cache.entries()) {
-        if (key.startsWith('yt_transcript_') && entry && entry.expiresAt > now) {
-          diskData[key] = entry;
-        }
+        if (key.startsWith('yt_transcript_') && entry && entry.expiresAt > now) diskData[key] = entry;
       }
       fs.writeFileSync(this.cacheFilePath, JSON.stringify(diskData, null, 2), 'utf-8');
-    } catch {
-      // Ignore gracefully if disk is unwritable or unavailable
-    }
+    } catch {}
   }
 
   findInDatabase(videoId) {
@@ -125,8 +101,7 @@ class TranscriptCache {
     for (const p of transcriptPaths) {
       try {
         if (fs.existsSync(p)) {
-          const raw = fs.readFileSync(p, 'utf-8');
-          const lectures = JSON.parse(raw);
+          const lectures = JSON.parse(fs.readFileSync(p, 'utf-8'));
           if (Array.isArray(lectures)) {
             const match = lectures.find(l => l.videoId === videoId || (l.sourceUrl && l.sourceUrl.includes(videoId)) || (l.videoUrl && l.videoUrl.includes(videoId)));
             if (match && (match.fullText || match.rawTranscript || match.timestampedText)) {
@@ -150,21 +125,14 @@ class TranscriptCache {
             }
           }
         }
-      } catch {
-        // Ignore gracefully
-      }
+      } catch {}
     }
 
-    const libPaths = [
-      LIBRARY_PATH,
-      path.join(__dirname, '../../data/library.json')
-    ].filter((p, idx, arr) => arr.indexOf(p) === idx);
-
+    const libPaths = [LIBRARY_PATH, path.join(__dirname, '../../data/library.json')].filter((p, idx, arr) => arr.indexOf(p) === idx);
     for (const p of libPaths) {
       try {
         if (fs.existsSync(p)) {
-          const raw = fs.readFileSync(p, 'utf-8');
-          const lib = JSON.parse(raw);
+          const lib = JSON.parse(fs.readFileSync(p, 'utf-8'));
           if (Array.isArray(lib)) {
             const match = lib.find(l => l.videoId === videoId || (l.videoUrl && l.videoUrl.includes(videoId)));
             if (match && match.transcriptText) {
@@ -187,17 +155,11 @@ class TranscriptCache {
             }
           }
         }
-      } catch {
-        // Ignore gracefully
-      }
+      } catch {}
     }
-
     return null;
   }
 
-  /**
-   * Asynchronous MongoDB / Mongoose Model lookup (L2 & L3 cache).
-   */
   async findInMongoDb(videoId, lang = 'en') {
     try {
       const { TranscriptCache: TranscriptCacheModel, LectureTranscript: LectureTranscriptModel } = getModels();
@@ -205,25 +167,23 @@ class TranscriptCache {
 
       if (TranscriptCacheModel) {
         const cached = await TranscriptCacheModel.findOne({ videoId: cleanId, language: lang });
-        if (cached && (cached.fullText || cached.timestampedText)) {
-          if (!cached.expiresAt || cached.expiresAt > Date.now()) {
-            return {
-              success: true,
-              videoId: cleanId,
-              metadata: {
-                title: cached.title || `Lecture (${cleanId})`,
-                author: cached.author || 'Course Instructor',
-                thumbnail: cached.thumbnail || `https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`,
-                videoUrl: cached.videoUrl || `https://www.youtube.com/watch?v=${cleanId}`
-              },
-              language: cached.language || lang,
-              isAutoGenerated: Boolean(cached.isAutoGenerated),
-              wordCount: cached.wordCount || (cached.fullText || '').split(/\s+/).filter(Boolean).length,
-              timestampedText: cached.timestampedText || cached.fullText || '',
-              fullText: cached.fullText || cached.timestampedText || '',
-              rawItems: cached.rawItems || []
-            };
-          }
+        if (cached && (cached.fullText || cached.timestampedText) && (!cached.expiresAt || cached.expiresAt > Date.now())) {
+          return {
+            success: true,
+            videoId: cleanId,
+            metadata: {
+              title: cached.title || `Lecture (${cleanId})`,
+              author: cached.author || 'Course Instructor',
+              thumbnail: cached.thumbnail || `https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`,
+              videoUrl: cached.videoUrl || `https://www.youtube.com/watch?v=${cleanId}`
+            },
+            language: cached.language || lang,
+            isAutoGenerated: Boolean(cached.isAutoGenerated),
+            wordCount: cached.wordCount || (cached.fullText || '').split(/\s+/).filter(Boolean).length,
+            timestampedText: cached.timestampedText || cached.fullText || '',
+            fullText: cached.fullText || cached.timestampedText || '',
+            rawItems: cached.rawItems || []
+          };
         }
       }
 
@@ -251,34 +211,30 @@ class TranscriptCache {
           };
         }
       }
-    } catch {
-      // Non-blocking database lookup fallback
-    }
+    } catch {}
     return null;
   }
 
-  /**
-   * Persists a transcript into MongoDB / Mongoose TranscriptCache model.
-   */
   async saveToMongoDb(videoId, lang, result, ttlMs = 30 * 24 * 60 * 60 * 1000) {
     try {
       const { TranscriptCache: TranscriptCacheModel } = getModels();
       if (!TranscriptCacheModel) return false;
       const cleanId = extractVideoId(videoId) || videoId;
       const expiresAt = Date.now() + ttlMs;
-
       const existing = await TranscriptCacheModel.findOne({ videoId: cleanId, language: lang });
       if (existing) {
-        existing.title = result.metadata?.title || existing.title || `Lecture (${cleanId})`;
-        existing.author = result.metadata?.author || existing.author || 'Course Instructor';
-        existing.videoUrl = result.metadata?.videoUrl || existing.videoUrl || `https://www.youtube.com/watch?v=${cleanId}`;
-        existing.thumbnail = result.metadata?.thumbnail || existing.thumbnail || `https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`;
-        existing.isAutoGenerated = Boolean(result.isAutoGenerated);
-        existing.wordCount = result.wordCount || existing.wordCount;
-        existing.timestampedText = result.timestampedText || existing.timestampedText;
-        existing.fullText = result.fullText || existing.fullText;
-        existing.rawItems = result.rawItems || existing.rawItems;
-        existing.expiresAt = expiresAt;
+        Object.assign(existing, {
+          title: result.metadata?.title || existing.title || `Lecture (${cleanId})`,
+          author: result.metadata?.author || existing.author || 'Course Instructor',
+          videoUrl: result.metadata?.videoUrl || existing.videoUrl || `https://www.youtube.com/watch?v=${cleanId}`,
+          thumbnail: result.metadata?.thumbnail || existing.thumbnail || `https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`,
+          isAutoGenerated: Boolean(result.isAutoGenerated),
+          wordCount: result.wordCount || existing.wordCount,
+          timestampedText: result.timestampedText || existing.timestampedText,
+          fullText: result.fullText || existing.fullText,
+          rawItems: result.rawItems || existing.rawItems,
+          expiresAt
+        });
         await existing.save();
       } else {
         await TranscriptCacheModel.create({
@@ -297,9 +253,7 @@ class TranscriptCache {
         });
       }
       return true;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }
 
   get(key) {
@@ -308,19 +262,14 @@ class TranscriptCache {
       if (key.startsWith('yt_transcript_')) {
         if (fs.existsSync(this.cacheFilePath)) {
           try {
-            const raw = fs.readFileSync(this.cacheFilePath, 'utf-8');
-            const diskData = JSON.parse(raw);
-            const diskEntry = diskData[key];
+            const diskEntry = JSON.parse(fs.readFileSync(this.cacheFilePath, 'utf-8'))[key];
             if (diskEntry && diskEntry.expiresAt && diskEntry.expiresAt > Date.now()) {
               this.cache.set(key, diskEntry);
               return diskEntry.value;
             }
-          } catch {
-            // Ignore
-          }
+          } catch {}
         }
-        const parts = key.split('_');
-        const vidId = parts[2];
+        const vidId = key.split('_')[2];
         if (vidId) {
           const fromDb = this.findInDatabase(vidId);
           if (fromDb) {
@@ -333,9 +282,7 @@ class TranscriptCache {
     }
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
-      if (key.startsWith('yt_transcript_')) {
-        this.savePersistentCache();
-      }
+      if (key.startsWith('yt_transcript_')) this.savePersistentCache();
       return null;
     }
     return entry.value;
@@ -346,27 +293,14 @@ class TranscriptCache {
       const oldestKey = this.cache.keys().next().value;
       if (oldestKey) this.cache.delete(oldestKey);
     }
-
-    this.cache.set(key, {
-      value,
-      expiresAt: Date.now() + ttlMs,
-      createdAt: Date.now()
-    });
-
-    if (key.startsWith('yt_transcript_')) {
-      this.savePersistentCache();
-    }
+    this.cache.set(key, { value, expiresAt: Date.now() + ttlMs, createdAt: Date.now() });
+    if (key.startsWith('yt_transcript_')) this.savePersistentCache();
   }
 
-  has(key) {
-    return this.get(key) !== null;
-  }
-
+  has(key) { return this.get(key) !== null; }
   delete(key) {
     const deleted = this.cache.delete(key);
-    if (key.startsWith('yt_transcript_')) {
-      this.savePersistentCache();
-    }
+    if (key.startsWith('yt_transcript_')) this.savePersistentCache();
     return deleted;
   }
 
@@ -374,29 +308,16 @@ class TranscriptCache {
     this.cache.clear();
     this.rateLimitCooldownUntil = 0;
     this.lastCooldownReason = '';
-    try {
-      if (fs.existsSync(this.cacheFilePath)) {
-        fs.unlinkSync(this.cacheFilePath);
-      }
-    } catch {
-      // Ignore
-    }
+    try { if (fs.existsSync(this.cacheFilePath)) fs.unlinkSync(this.cacheFilePath); } catch {}
   }
 
-  setRateLimitCooldown(durationMs = 60 * 1000, reason = 'YouTube IP rate limit / Captcha challenge detected') {
+  setRateLimitCooldown(durationMs = 60 * 1000, reason = 'YouTube IP rate limit detected') {
     this.rateLimitCooldownUntil = Date.now() + durationMs;
     this.lastCooldownReason = reason;
   }
 
-  isCooldownActive() {
-    return Date.now() < this.rateLimitCooldownUntil;
-  }
-
-  getCooldownRemainingSec() {
-    if (!this.isCooldownActive()) return 0;
-    return Math.ceil((this.rateLimitCooldownUntil - Date.now()) / 1000);
-  }
-
+  isCooldownActive() { return Date.now() < this.rateLimitCooldownUntil; }
+  getCooldownRemainingSec() { return this.isCooldownActive() ? Math.ceil((this.rateLimitCooldownUntil - Date.now()) / 1000) : 0; }
   getStats() {
     return {
       size: this.cache.size,
@@ -410,26 +331,10 @@ class TranscriptCache {
 
 const cache = new TranscriptCache();
 
-const DESKTOP_USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
-];
-
-function getRandomUserAgent() {
-  const index = Math.floor(Math.random() * DESKTOP_USER_AGENTS.length);
-  return DESKTOP_USER_AGENTS[index];
-}
-
 function extractVideoId(urlOrId) {
   if (!urlOrId || typeof urlOrId !== 'string') return null;
-
   const trimmed = urlOrId.trim();
-
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
-    return trimmed;
-  }
-
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
   const patterns = [
     /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?(?:.*&)?v=([a-zA-Z0-9_-]{11})/i,
     /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})/i,
@@ -439,33 +344,24 @@ function extractVideoId(urlOrId) {
     /(?:https?:\/\/)?(?:www\.)?youtube\.com\/live\/([a-zA-Z0-9_-]{11})/i,
     /(?:https?:\/\/)?m\.youtube\.com\/watch\?(?:.*&)?v=([a-zA-Z0-9_-]{11})/i
   ];
-
   for (const regex of patterns) {
     const match = trimmed.match(regex);
-    if (match && match[1]) {
-      return match[1];
-    }
+    if (match && match[1]) return match[1];
   }
-
   return null;
 }
 
 function decodeEntities(text) {
   if (!text || typeof text !== 'string') return '';
   return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
 }
 
 async function fetchVideoMetadata(videoId) {
   if (!videoId) return null;
-
   const cacheKey = `yt_meta_${videoId}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
@@ -477,75 +373,244 @@ async function fetchVideoMetadata(videoId) {
     videoUrl: `https://www.youtube.com/watch?v=${videoId}`
   };
 
-  const apiKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
-  if (apiKey && apiKey.trim()) {
-    try {
-      const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(videoId)}&part=snippet&key=${encodeURIComponent(apiKey.trim())}`;
-      const apiRes = await fetch(apiUrl);
-      if (apiRes.ok) {
-        const apiData = await apiRes.json();
-        const item = apiData.items && apiData.items[0];
-        if (item && item.snippet) {
-          const meta = {
-            title: item.snippet.title || defaultMeta.title,
-            author: item.snippet.channelTitle || defaultMeta.author,
-            thumbnail: (item.snippet.thumbnails && item.snippet.thumbnails.high && item.snippet.thumbnails.high.url) || defaultMeta.thumbnail,
-            videoUrl: `https://www.youtube.com/watch?v=${videoId}`
-          };
-          cache.set(cacheKey, meta, 24 * 60 * 60 * 1000);
-          return meta;
-        }
-      }
-    } catch {
-      // Fall through to oEmbed
-    }
-  }
-
   try {
-    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&format=json`;
-    const res = await fetch(oembedUrl);
+    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&format=json`);
     if (res.ok) {
       const data = await res.json();
-      const meta = {
-        title: data.title || defaultMeta.title,
-        author: data.author_name || defaultMeta.author,
-        thumbnail: defaultMeta.thumbnail,
-        videoUrl: `https://www.youtube.com/watch?v=${videoId}`
-      };
+      const meta = { title: data.title || defaultMeta.title, author: data.author_name || defaultMeta.author, thumbnail: defaultMeta.thumbnail, videoUrl: defaultMeta.videoUrl };
       cache.set(cacheKey, meta, 24 * 60 * 60 * 1000);
       return meta;
     }
-  } catch {
-    // Ignore and return default
-  }
+  } catch {}
 
   cache.set(cacheKey, defaultMeta, 60 * 60 * 1000);
   return defaultMeta;
 }
 
 function formatTranscript(items) {
-  if (!items || !items.length) {
-    return {
-      rawItems: [],
-      timestampedText: '',
-      fullText: '',
-      wordCount: 0
-    };
-  }
-
+  if (!items || !items.length) return { rawItems: [], timestampedText: '', fullText: '', wordCount: 0 };
   const timestamped = items.map(item => {
-    let totalSecs = 0;
-    if (item.offsetSec !== undefined) {
-      totalSecs = item.offsetSec;
-    } else if (item.offset > 1000 || items[items.length - 1]?.offset > 1800) {
-      totalSecs = Math.floor((item.offset || 0) / 1000);
-    } else {
-      totalSecs = Math.floor(item.offset || 0);
-    }
+    const totalSecs = item.offsetSec !== undefined ? item.offsetSec : (item.offset > 1000 ? Math.floor((item.offset || 0) / 1000) : Math.floor(item.offset || 0));
     const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
     const secs = (totalSecs % 60).toString().padStart(2, '0');
-    const cleanText = (item.text || '').replace(/\s+/g, ' ').trim();
-    return `[${mins}:${secs}] ${cleanText}`;
+    return `[${mins}:${secs}] ${(item.text || '').replace(/\s+/g, ' ').trim()}`;
   }).filter(line => line.length > 8).join('\n');
 
-  const cleanText = items.map(i => (i.text || '').trim()).filter(Boolean).
+  const cleanText = items.map(i => (i.text || '').trim()).filter(Boolean).join(' ');
+  return { rawItems: items, timestampedText: timestamped, fullText: cleanText, wordCount: cleanText.split(/\s+/).filter(Boolean).length };
+}
+
+function parseTranscriptXml(xml, lang = 'en') {
+  if (!xml || typeof xml !== 'string') return [];
+  const results = [];
+  const pRegex = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+  let match;
+  while ((match = pRegex.exec(xml)) !== null) {
+    const startMs = parseInt(match[1], 10);
+    const durMs = parseInt(match[2], 10);
+    let text = '';
+    const sRegex = /<s[^>]*>([^<]*)<\/s>/g;
+    let sMatch;
+    while ((sMatch = sRegex.exec(match[3])) !== null) text += sMatch[1];
+    if (!text) text = match[3].replace(/<[^>]+>/g, '');
+    text = decodeEntities(text).replace(/\s+/g, ' ').trim();
+    if (text) results.push({ text, duration: durMs, offset: startMs, offsetSec: Math.floor(startMs / 1000), lang });
+  }
+  if (results.length > 0) return results;
+
+  const textRegex = /<text\s+start="([^"]*)"(?:\s+dur="([^"]*)")?[^>]*>([\s\S]*?)<\/text>/g;
+  let tMatch;
+  while ((tMatch = textRegex.exec(xml)) !== null) {
+    const startSec = parseFloat(tMatch[1]) || 0;
+    const text = decodeEntities(tMatch[3].replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+    if (text) results.push({ text, offset: Math.round(startSec * 1000), offsetSec: Math.floor(startSec), duration: Math.round((parseFloat(tMatch[2]) || 0) * 1000), lang });
+  }
+  return results;
+}
+
+async function fetchViaInnerTube(videoId, requestedLang = 'en') {
+  const clients = [
+    { name: 'ANDROID', version: '20.10.38', userAgent: 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)', headers: { 'X-YouTube-Client-Name': '3', 'X-YouTube-Client-Version': '20.10.38' } },
+    { name: 'IOS', version: '19.45.4', userAgent: 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 17_5 like Mac OS X)', headers: { 'X-YouTube-Client-Name': '5', 'X-YouTube-Client-Version': '19.45.4' } }
+  ];
+  for (const client of clients) {
+    try {
+      const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': client.userAgent, ...client.headers },
+        body: JSON.stringify({ context: { client: { clientName: client.name, clientVersion: client.version, hl: requestedLang || 'en', gl: 'US' } }, videoId })
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data?.playabilityStatus?.status !== 'OK') continue;
+      const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      if (!Array.isArray(captionTracks) || !captionTracks.length) continue;
+
+      const chosenTrack = captionTracks.find(t => t.languageCode === requestedLang) || captionTracks.find(t => t.languageCode?.startsWith('en')) || captionTracks[0];
+      if (!chosenTrack?.baseUrl) continue;
+
+      const trackRes = await fetch(chosenTrack.baseUrl, { headers: { 'User-Agent': client.userAgent } });
+      if (!trackRes.ok) continue;
+      const items = parseTranscriptXml(await trackRes.text(), chosenTrack.languageCode || requestedLang);
+      if (items.length > 0) return { items, language: chosenTrack.languageCode || requestedLang, isAutoGenerated: Boolean(chosenTrack.kind === 'asr') };
+    } catch {}
+  }
+  return null;
+}
+
+async function fetchViaYoutubeTranscriptLib(videoId, requestedLang = 'en') {
+  if (cache.isCooldownActive()) return null;
+  try {
+    let items;
+    try { items = await YoutubeTranscript.fetchTranscript(videoId, { lang: requestedLang }); }
+    catch { items = await YoutubeTranscript.fetchTranscript(videoId); }
+    if (items && items.length > 0) return { items, language: items[0].lang || requestedLang, isAutoGenerated: false };
+  } catch {}
+  return null;
+}
+
+async function fetchViaGeminiDirect(videoId, requestedLang = 'en') {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || !apiKey.trim()) return null;
+
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const langLabel = requestedLang === 'hi' ? 'Hindi' : 'English';
+
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { file_data: { file_uri: videoUrl } },
+            { text: `Provide a detailed, accurate transcript of this lecture video in ${langLabel} with approximate timestamps in [MM:SS] format at the start of each paragraph or segment. Output only the transcript text.` }
+          ]
+        }]
+      })
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text.trim()) return null;
+
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const items = lines.map((line, idx) => {
+      const tsMatch = line.match(/^\[(\d{1,2}):(\d{2})\]\s*(.*)$/);
+      if (tsMatch) {
+        const secs = parseInt(tsMatch[1], 10) * 60 + parseInt(tsMatch[2], 10);
+        return { text: tsMatch[3], offset: secs * 1000, offsetSec: secs, duration: 5000, lang: requestedLang };
+      }
+      return { text: line, offset: idx * 10000, offsetSec: idx * 10, duration: 10000, lang: requestedLang };
+    }).filter(i => i.text);
+
+    if (items.length > 0) return { items, language: requestedLang, isAutoGenerated: true };
+  } catch { return null; }
+  return null;
+}
+
+function categorizeError(err, videoId) {
+  if (cache.isCooldownActive() || err?.status === 429) {
+    const remaining = cache.getCooldownRemainingSec() || 60;
+    return { errorCode: 'RATE_LIMITED', isRateLimited: true, error: `YouTube rate-limited (${remaining}s cooldown).`, cooldownRemainingSec: remaining, canFallbackManual: true, canUploadMedia: true };
+  }
+  return { errorCode: 'TRANSCRIPT_NOT_AVAILABLE', error: `No captions available for video (${videoId}).`, details: 'Try pasting the transcript below or verify the video is public.', canFallbackManual: true, canUploadMedia: true };
+}
+
+async function fetchTranscript(urlOrId, requestedLang = 'en', options = {}) {
+  const videoId = extractVideoId(urlOrId);
+  if (!videoId) return { success: false, errorCode: 'INVALID_URL', error: 'Invalid YouTube URL or Video ID.', canFallbackManual: true };
+
+  const cacheKey = `yt_transcript_${videoId}_${requestedLang}`;
+  const cachedResult = cache.get(cacheKey);
+  if (cachedResult && !options.skipCache) return { ...cachedResult, isCached: true };
+
+  if (!options.skipCache) {
+    const mongoCached = await cache.findInMongoDb(videoId, requestedLang);
+    if (mongoCached) {
+      cache.set(cacheKey, mongoCached, 60 * 60 * 1000);
+      return { ...mongoCached, isCached: true };
+    }
+  }
+
+  const metadataPromise = fetchVideoMetadata(videoId);
+  let transcriptData = null;
+  let lastError = null;
+
+  if (!cache.isCooldownActive()) {
+    try { transcriptData = await fetchViaInnerTube(videoId, requestedLang); } catch (err) { lastError = err; }
+  }
+  if (!transcriptData && !cache.isCooldownActive()) {
+    try { transcriptData = await fetchViaYoutubeTranscriptLib(videoId, requestedLang); } catch (err) { lastError = err; }
+  }
+  if (!transcriptData) {
+    try { transcriptData = await fetchViaGeminiDirect(videoId, requestedLang); } catch (err) { lastError = err; }
+  }
+
+  const metadata = await metadataPromise;
+  if (!transcriptData || !transcriptData.items || !transcriptData.items.length) {
+    return { success: false, videoId, metadata, ...categorizeError(lastError, videoId) };
+  }
+
+  const formatted = formatTranscript(transcriptData.items);
+  const result = {
+    success: true,
+    videoId,
+    metadata,
+    language: transcriptData.language || requestedLang,
+    isAutoGenerated: Boolean(transcriptData.isAutoGenerated),
+    wordCount: formatted.wordCount,
+    timestampedText: formatted.timestampedText,
+    fullText: formatted.fullText,
+    rawItems: formatted.rawItems
+  };
+
+  cache.set(cacheKey, result, 60 * 60 * 1000);
+  await cache.saveToMongoDb(videoId, requestedLang, result, 30 * 24 * 60 * 60 * 1000);
+  return result;
+}
+
+function cacheTranscript(videoId, transcriptData, lang = 'en') {
+  if (!videoId || !transcriptData) return false;
+  const cleanId = extractVideoId(videoId) || videoId;
+  const cacheKey = `yt_transcript_${cleanId}_${lang}`;
+  const fullText = transcriptData.fullText || transcriptData.rawTranscript || (typeof transcriptData === 'string' ? transcriptData : '');
+  const timestampedText = transcriptData.timestampedText || fullText;
+  const words = transcriptData.wordCount || fullText.split(/\s+/).filter(Boolean).length;
+
+  const result = {
+    success: true,
+    videoId: cleanId,
+    metadata: transcriptData.metadata || {
+      title: `YouTube Lecture (${cleanId})`,
+      author: 'YouTube Instructor',
+      thumbnail: `https://img.youtube.com/vi/${cleanId}/hqdefault.jpg`,
+      videoUrl: `https://www.youtube.com/watch?v=${cleanId}`
+    },
+    language: transcriptData.language || lang,
+    isAutoGenerated: Boolean(transcriptData.isAutoGenerated),
+    wordCount: words,
+    timestampedText,
+    fullText,
+    rawItems: transcriptData.rawItems || []
+  };
+
+  cache.set(cacheKey, result, 30 * 24 * 60 * 60 * 1000);
+  cache.saveToMongoDb(cleanId, lang, result, 30 * 24 * 60 * 60 * 1000).catch(() => {});
+  return true;
+}
+
+function getCache() { return cache; }
+
+module.exports = {
+  extractVideoId,
+  fetchVideoMetadata,
+  fetchTranscript,
+  cacheTranscript,
+  formatTranscript,
+  parseTranscriptXml,
+  decodeEntities,
+  getCache
+};
