@@ -36,7 +36,9 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
     'gemini-flash-lite-latest',
     'gemini-3.5-flash-lite',
     'gemini-3.8-flash',
-    'gemini-flash-latest'
+    'gemini-flash-latest',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite'
   ];
 
   const candidate = (preferredModel && !preferredModel.includes('gemini-2.5-flash')) ? preferredModel.trim() : null;
@@ -53,77 +55,103 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
   let lastError = null;
   for (const model of modelsToTry) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`;
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': cleanKey
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(55000) // 55s timeout per attempt to allow full single-call study pack generation
-      });
+    const maxRetries = 1;
 
-      if (!res.ok) {
-        const errBody = await res.text();
-        let errorMsg = `Gemini API error (${res.status})`;
-        let errorReason = '';
-        try {
-          const parsed = JSON.parse(errBody);
-          if (parsed.error && parsed.error.message) {
-            errorMsg = parsed.error.message;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': cleanKey
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(55000) // 55s timeout per attempt to allow full single-call study pack generation
+        });
+
+        if (!res.ok) {
+          const errBody = await res.text();
+          let errorMsg = `Gemini API error (${res.status})`;
+          let errorReason = '';
+          try {
+            const parsed = JSON.parse(errBody);
+            if (parsed.error && parsed.error.message) {
+              errorMsg = parsed.error.message;
+            }
+            if (parsed.error && parsed.error.details && parsed.error.details[0]) {
+              errorReason = parsed.error.details[0].reason || '';
+            }
+          } catch (e) {
+            errorMsg = errBody.slice(0, 150);
           }
-          if (parsed.error && parsed.error.details && parsed.error.details[0]) {
-            errorReason = parsed.error.details[0].reason || '';
+
+          if (res.status === 401) {
+            throw new Error(`Google API 401 UNAUTHENTICATED (${errorReason || 'INVALID_CREDENTIALS'}): ${errorMsg}. Verify that GEMINI_API_KEY is an active Google AI Studio key and is passed as an API key (not an OAuth Bearer token).`);
           }
-        } catch (e) {
-          errorMsg = errBody.slice(0, 150);
+
+          // Retry once on HTTP 503 (high demand) or 429 (rate limit / quota spike) before moving to next model
+          const isTransientStatus = res.status === 503 || res.status === 429 || errorMsg.includes('high demand');
+          if (isTransientStatus && attempt < maxRetries) {
+            console.warn(`[AI Service] Model "${model}" returned HTTP ${res.status} (${errorMsg}). Retrying in 2 seconds...`);
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+
+          const isModelIssue = res.status === 404 ||
+            res.status === 429 ||
+            res.status === 503 ||
+            errorMsg.includes('not found') ||
+            errorMsg.includes('not supported') ||
+            errorMsg.includes('no longer available') ||
+            errorMsg.includes('high demand') ||
+            errorMsg.includes('quota');
+
+          lastError = new Error(`Gemini API Error: ${errorMsg}`);
+          if (isModelIssue && model !== modelsToTry[modelsToTry.length - 1]) {
+            console.warn(`[AI Service] Model "${model}" returned ${res.status} (${errorMsg}). Trying fallback model...`);
+            break;
+          }
+          throw lastError;
         }
 
-        if (res.status === 401) {
-          throw new Error(`Google API 401 UNAUTHENTICATED (${errorReason || 'INVALID_CREDENTIALS'}): ${errorMsg}. Verify that GEMINI_API_KEY is an active Google AI Studio key and is passed as an API key (not an OAuth Bearer token).`);
+        const data = await res.json();
+        const candidate = data.candidates && data.candidates[0];
+        if (!candidate || !candidate.content || !candidate.content.parts) {
+          throw new Error('Gemini API returned an empty response.');
+        }
+        return candidate.content.parts.map(p => p.text).join('\n').trim();
+      } catch (err) {
+        lastError = err;
+        if (err.message && err.message.includes('401 UNAUTHENTICATED')) {
+          throw err; // Fail fast on auth errors
         }
 
-        const isModelIssue = res.status === 404 ||
-          res.status === 429 ||
-          res.status === 503 ||
-          errorMsg.includes('not found') ||
-          errorMsg.includes('not supported') ||
-          errorMsg.includes('no longer available') ||
-          errorMsg.includes('high demand') ||
-          errorMsg.includes('quota');
-
-        lastError = new Error(`Gemini API Error: ${errorMsg}`);
-        if (isModelIssue && model !== modelsToTry[modelsToTry.length - 1]) {
-          console.warn(`[AI Service] Model "${model}" returned ${res.status} (${errorMsg}). Trying fallback model...`);
+        const isTransientErr = err.message && (
+          err.message.includes('503') ||
+          err.message.includes('429') ||
+          err.message.includes('high demand')
+        );
+        if (isTransientErr && attempt < maxRetries) {
+          console.warn(`[AI Service] Model "${model}" encountered error (${err.message}). Retrying in 2 seconds...`);
+          await new Promise(r => setTimeout(r, 2000));
           continue;
         }
-        throw lastError;
-      }
 
-      const data = await res.json();
-      const candidate = data.candidates && data.candidates[0];
-      if (!candidate || !candidate.content || !candidate.content.parts) {
-        throw new Error('Gemini API returned an empty response.');
+        const isModelIssue = err.message && (
+          err.message.includes('not found') ||
+          err.message.includes('not supported') ||
+          err.message.includes('no longer available') ||
+          err.message.includes('high demand') ||
+          err.message.includes('quota') ||
+          err.message.includes('503') ||
+          err.message.includes('429')
+        );
+        if (isModelIssue && model !== modelsToTry[modelsToTry.length - 1]) {
+          console.warn(`[AI Service] Model "${model}" failed (${err.message}). Trying fallback model...`);
+          break;
+        }
+        throw err;
       }
-      return candidate.content.parts.map(p => p.text).join('\n').trim();
-    } catch (err) {
-      lastError = err;
-      if (err.message && err.message.includes('401 UNAUTHENTICATED')) {
-        throw err; // Fail fast on auth errors
-      }
-      const isModelIssue = err.message && (
-        err.message.includes('not found') ||
-        err.message.includes('not supported') ||
-        err.message.includes('no longer available') ||
-        err.message.includes('high demand') ||
-        err.message.includes('quota')
-      );
-      if (isModelIssue && model !== modelsToTry[modelsToTry.length - 1]) {
-        console.warn(`[AI Service] Model "${model}" failed (${err.message}). Trying fallback model...`);
-        continue;
-      }
-      throw err;
     }
   }
   throw lastError || new Error('All Gemini models failed.');
