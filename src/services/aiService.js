@@ -36,13 +36,12 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
     'gemini-flash-lite-latest',
     'gemini-3.5-flash-lite',
     'gemini-3.8-flash',
-    'gemini-flash-latest',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite'
+    'gemini-flash-latest'
   ];
 
-  const candidate = (preferredModel && !preferredModel.includes('gemini-2.5-flash')) ? preferredModel.trim() : null;
-  const envModel = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash')) ? process.env.GEMINI_MODEL.trim() : null;
+  const isDeprecated = m => !m || m.includes('gemini-2.5-flash') || m.includes('gemini-2.0-flash');
+  const candidate = (preferredModel && !isDeprecated(preferredModel)) ? preferredModel.trim() : null;
+  const envModel = (process.env.GEMINI_MODEL && !isDeprecated(process.env.GEMINI_MODEL)) ? process.env.GEMINI_MODEL.trim() : null;
 
   const modelsToTry = [
     candidate,
@@ -50,6 +49,7 @@ async function callGeminiAPI(geminiKey, payload, preferredModel) {
     ...activeFallbackModels
   ]
     .filter(Boolean)
+    .filter(m => !isDeprecated(m))
     .filter((m, idx, arr) => arr.indexOf(m) === idx);
 
   let lastError = null;
@@ -165,7 +165,7 @@ async function callLLM(systemInstruction, userPrompt, jsonMode = false) {
   const openaiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim();
 
   if (geminiKey) {
-    const model = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash'))
+    const model = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash') && !process.env.GEMINI_MODEL.includes('gemini-2.0-flash'))
       ? process.env.GEMINI_MODEL
       : 'gemini-flash-lite-latest';
     const generationConfig = {
@@ -236,7 +236,7 @@ async function callGeminiMultimodal(systemInstruction, userPrompt, base64Data, m
     throw new Error('GEMINI_API_KEY is required in .env for multimodal PDF analysis.');
   }
 
-  const model = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash'))
+  const model = (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('gemini-2.5-flash') && !process.env.GEMINI_MODEL.includes('gemini-2.0-flash'))
     ? process.env.GEMINI_MODEL
     : 'gemini-flash-lite-latest';
   const generationConfig = {
